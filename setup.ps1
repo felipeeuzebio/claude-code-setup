@@ -34,6 +34,13 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 }
 Ok "node $(node --version), npx $(npx --version)"
 
+$python = @("python3", "python") | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
+if (-not $python) {
+    Write-Error "python3 is required for scripts\merge-mcp-config.py - install it first (https://python.org)"
+    exit 1
+}
+Ok "$python $(& $python --version)"
+
 $hasDocker = $false
 if (Get-Command docker -ErrorAction SilentlyContinue) {
     try { docker info | Out-Null; $hasDocker = $true; Ok "docker $(docker --version)" }
@@ -75,7 +82,7 @@ Copy-Item (Join-Path $RepoRoot "claude-md\init-claude-md.md") (Join-Path $comman
 Ok "run /init-claude-md in any project to generate its CLAUDE.md from the standard template"
 
 Step "Registering MCP servers into ~/.claude.json"
-node (Join-Path $RepoRoot "scripts\merge-mcp-config.js")
+& $python (Join-Path $RepoRoot "scripts\merge-mcp-config.py")
 
 Step "Firecrawl (self-hosted web scraping)"
 if ($hasDocker -and $env:SKIP_FIRECRAWL -ne "1") {

@@ -101,7 +101,7 @@ is more setup than this pass needed.
 
 ## setup.sh/setup.ps1: skip rather than write broken entries
 
-Both scripts (and the `scripts/merge-mcp-config.js` they share) only add
+Both scripts (and the `scripts/merge-mcp-config.py` they share) only add
 an MCP server to `~/.claude.json` once its required secret/path is
 present - a `github` entry with a placeholder token would fail on first
 use, and a silently-broken MCP server is worse than one that's just not

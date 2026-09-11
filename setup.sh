@@ -26,7 +26,8 @@ warn() { printf '  warn %s\n' "$1" >&2; }
 step "Checking required tools"
 command -v node >/dev/null || { echo "node is required - install it first (https://nodejs.org)"; exit 1; }
 command -v npx  >/dev/null || { echo "npx is required (ships with node >=8.2)"; exit 1; }
-ok "node $(node --version), npx $(npx --version)"
+command -v python3 >/dev/null || { echo "python3 is required for scripts/merge-mcp-config.py"; exit 1; }
+ok "node $(node --version), npx $(npx --version), $(python3 --version)"
 
 HAS_DOCKER=false
 if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
@@ -87,7 +88,7 @@ cp "$REPO_ROOT/claude-md/init-claude-md.md" "$HOME/.claude/commands/init-claude-
 ok "run /init-claude-md in any project to generate its CLAUDE.md from the standard template"
 
 step "Registering MCP servers into ~/.claude.json"
-node "$REPO_ROOT/scripts/merge-mcp-config.js"
+python3 "$REPO_ROOT/scripts/merge-mcp-config.py"
 
 step "Firecrawl (self-hosted web scraping)"
 if [ "$HAS_DOCKER" = true ] && [ "${SKIP_FIRECRAWL:-}" != "1" ]; then
