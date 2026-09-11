@@ -1,0 +1,60 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_PAT_HERE"
+      },
+      "description": "GitHub operations - PRs, issues, repos"
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "description": "Live documentation lookup for libraries/frameworks - no API key required"
+    },
+    "firecrawl": {
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp@3.23.7"],
+      "env": {
+        "FIRECRAWL_API_URL": "http://localhost:3002",
+        "FIRECRAWL_API_KEY": "OMIT_IF_SELF_HOSTED_INSTANCE_HAS_NO_AUTH"
+      },
+      "description": "Self-hosted Firecrawl (see ../firecrawl/). Swap FIRECRAWL_API_URL for the cloud default and set a real FIRECRAWL_API_KEY to use Firecrawl Cloud instead."
+    },
+    "obsidian": {
+      "command": "uvx",
+      "args": ["mcp-obsidian"],
+      "env": {
+        "OBSIDIAN_API_KEY": "YOUR_OBSIDIAN_LOCAL_REST_API_KEY_HERE",
+        "OBSIDIAN_HOST": "127.0.0.1",
+        "OBSIDIAN_PORT": "27124"
+      },
+      "description": "Read/search/write your Obsidian vault. Requires the 'Local REST API' community plugin (coddingtonbear/obsidian-local-rest-api) enabled in Obsidian, with Obsidian running. Known issue: Python MCP SDK 2.0+ breaks this server's handler registration - it's pinned <2.0.0 upstream; if you see BrokenPipeError mid-session, check for an update."
+    },
+    "browser-use": {
+      "type": "http",
+      "url": "https://api.browser-use.com/mcp",
+      "headers": {
+        "x-browser-use-api-key": "YOUR_BROWSER_USE_KEY_HERE"
+      },
+      "description": "Agentic browsing - give it a task, it decides the steps. Complements lightpanda-playwright below (agent layer vs. browser engine, not a substitute)."
+    },
+    "lightpanda-playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp", "--cdp-endpoint", "ws://localhost:9222"],
+      "description": "Playwright MCP driven by a local Lightpanda browser instead of Chrome, for fast/cheap deterministic scraping. Start Lightpanda first: `lightpanda serve --port 9222`. Install: curl -fsSL https://pkg.lightpanda.io/install.sh | bash"
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"],
+      "description": "Codebase knowledge graph - search/context/callers/callees/impact/explore/node/files/status. Already installed locally (v1.5.0); run `codegraph init` in a project once to build its index. Generated via `codegraph install --print-config claude`."
+    }
+  },
+  "_comments": {
+    "usage": "Copy the servers you need into ~/.claude.json's mcpServers section, or register the same command/args/env/url through the Bifrost UI (see ../bifrost/SETUP.md).",
+    "env_vars": "Replace YOUR_*_HERE placeholders with real values. Never commit real secrets to this repo.",
+    "graphify": "Evaluated and intentionally omitted - overlaps Codegraph almost entirely and Codegraph was already installed. See ../docs/DECISIONS.md."
+  }
+}
