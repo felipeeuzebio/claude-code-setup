@@ -6,7 +6,7 @@ set of MCP servers, and a reusable language-agnostic `CLAUDE.md` starter.
 ## Layout
 
 ```
-setup.sh          One-shot setup for Linux/macOS/WSL2
+setup.sh          One-shot setup for Linux (native or WSL2) and macOS
 setup.ps1         One-shot setup for native Windows (Lightpanda needs WSL2 though)
 .env.example      Optional secrets/flags setup.sh and setup.ps1 read
 bifrost/          Bifrost MCP gateway install + config notes
@@ -35,7 +35,7 @@ Graphify was evaluated and intentionally left out — see `docs/DECISIONS.md`.
 
 ```bash
 cp .env.example .env   # fill in what you have; unset vars just get skipped
-./setup.sh             # Linux/macOS/WSL2
+./setup.sh             # Linux (native or WSL2) / macOS
 # or, on native Windows:
 ./setup.ps1
 ```

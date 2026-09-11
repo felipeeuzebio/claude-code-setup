@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# One-shot setup for this Claude Code environment on Linux/macOS/WSL2.
+# One-shot setup for this Claude Code environment on Linux (native or
+# under WSL2) and macOS.
 # Installs what it can, registers what it can into ~/.claude.json, and
 # prints exactly what's left for you to do by hand (secrets, Bifrost UI).
 #

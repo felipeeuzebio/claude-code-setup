@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Bring up a self-hosted Firecrawl instance via Docker Compose.
-# Requires Docker (Docker Desktop WSL integration enabled, or Docker Engine
-# installed natively) - see ../docs/DECISIONS.md.
+# Requires Docker: native Docker Engine on Linux, Docker Desktop on macOS,
+# or Docker Desktop with WSL integration enabled if running under WSL2 -
+# see ../docs/DECISIONS.md.
 set -euo pipefail
 
 CHECKOUT_DIR="${FIRECRAWL_CHECKOUT_DIR:-$HOME/services/firecrawl}"
@@ -10,7 +11,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! command -v docker &>/dev/null; then
   echo "docker not found on PATH." >&2
-  echo "If you're on WSL2 with Docker Desktop: enable Settings > Resources > WSL Integration for this distro, then restart your shell." >&2
+  if grep -qi microsoft /proc/version 2>/dev/null; then
+    echo "You're on WSL2: if Docker Desktop is installed on the Windows side, enable Settings > Resources > WSL Integration for this distro, then restart your shell." >&2
+  else
+    echo "Install Docker Engine for your distro (https://docs.docker.com/engine/install/) or Docker Desktop, then make sure the docker daemon is running." >&2
+  fi
   exit 1
 fi
 

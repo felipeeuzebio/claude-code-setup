@@ -40,6 +40,16 @@ Verified working end-to-end with a live `POST /v1/scrape` against
 `https://example.com` through the running container, not just a port
 check.
 
+Both of these are WSL2/Docker-Desktop-specific quirks, not something
+`scripts/setup-firecrawl.sh` itself requires - on native Linux with Docker
+Engine installed directly (no Docker Desktop, no WSL layer in between),
+`docker compose up -d` just works with no anonymous-volume permission
+class of issue to hit in the first place. `setup.sh`'s docker check
+(`command -v docker && docker info`) and the Firecrawl bring-up script are
+plain `docker compose` calls with no WSL-specific logic - the only place
+that branches on WSL vs. native Linux is the error message printed when
+`docker` isn't found at all, so it points at the right fix either way.
+
 ## browser-use + Lightpanda: both, not either/or
 
 These aren't competing choices — they sit at different layers:
