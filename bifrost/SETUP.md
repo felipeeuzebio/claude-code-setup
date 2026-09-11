@@ -45,15 +45,17 @@ Verify with `/mcp` inside Claude Code.
 Do this through the Bifrost web UI (Settings → MCP → Add Server) rather than
 hand-editing a config Bifrost doesn't document — for each one, paste in the
 command/args/env from `../mcp/mcp-servers.json`, or the HTTP URL for the
-remote ones (browser-use, Context7 if you use its hosted variant).
+remote ones (Context7 if you use its hosted variant).
 
 Add, in this order (cheapest to verify first):
 
 1. **Context7** — no key needed, good smoke test for the gateway.
 2. **GitHub** — needs `GITHUB_PERSONAL_ACCESS_TOKEN`.
 3. **Codegraph** — local stdio, no key.
-4. **Obsidian** — needs Obsidian running with the Local REST API plugin.
-5. **browser-use** — hosted, needs `BROWSER_USE_API_KEY`.
+4. **Obsidian (librarian-mcp)** — local stdio, reads the vault off disk;
+   needs `OBSIDIAN_VAULT_PATH` (no Obsidian process, no REST API plugin).
+5. **browser-use** — local stdio via `uvx browser-use[cli] --cli-mcp`, no
+   key (Claude drives the browser directly - see `docs/DECISIONS.md`).
 6. **Lightpanda-backed Playwright** — needs `lightpanda serve` running first.
 7. **Firecrawl** — point at your self-hosted instance once
    `scripts/setup-firecrawl.sh` is up, or use the cloud key.

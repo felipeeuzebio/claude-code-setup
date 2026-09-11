@@ -54,9 +54,11 @@ that branches on WSL vs. native Linux is the error message printed when
 
 These aren't competing choices — they sit at different layers:
 
-- **browser-use** is an agent framework: give it a task in natural language,
-  it decides the steps. Self-hosted (see the addendum below) for
-  exploratory, task-level browsing.
+- **browser-use** gives Claude Code low-level browser control
+  (`browser_exec`/`browser_screenshot`, backed by browser-use's Chromium
+  "browser harness") for exploratory browsing where you don't already know
+  the exact sequence of steps. Self-hosted, no API key - see the addendum
+  below for how that landed here.
 - **Lightpanda** is a browser *engine* (CDP-compatible, built from scratch in
   Zig, ~11x faster / ~1/16th the memory of headless Chrome). It's wired in as
   the backend for the Playwright MCP via `--cdp-endpoint`, for
@@ -66,28 +68,67 @@ Use browser-use when you'd otherwise write scraping logic by hand; use the
 Lightpanda-backed Playwright MCP when you already have a deterministic
 sequence and just want it fast and cheap to run repeatedly.
 
-**Addendum: browser-use switched from hosted to self-hosted.** It
-originally pointed at `api.browser-use.com/mcp` (their paid cloud service,
-needing `BROWSER_USE_API_KEY`) - the one non-self-hosted piece in an
-otherwise self-host-everything setup, and a real inconsistency once
-someone actually looked at `.env.example` next to Firecrawl. Switched to
-running it locally instead: `uvx browser-use[cli] --mcp` (`uvx` is
-Python's on-demand package runner, the same role `npx` plays for the
-Node-based servers here - no separate `pip install` step, just `uv` on
-PATH). Two things worth knowing before assuming any LLM key works:
+**Addendum: browser-use's MCP *mode*, not just its hosting, changed.**
+Went through three iterations getting this right:
 
-- The MCP server's LLM client is hardcoded to `ChatOpenAI`
-  (`browser_use/mcp/server.py`) even though the underlying `browser-use`
-  library supports Anthropic, Google, Azure, and others - so it only reads
-  `OPENAI_API_KEY` (confirmed against `browser_use/config.py`'s env-var
-  overrides for the MCP path specifically), not a generic "bring your own
-  provider" key. `BROWSER_USE_LLM_MODEL` overrides the default model if
-  needed.
-- `setup.sh`/`setup.ps1` check for `uvx` the same way they check for
-  `docker` - a soft warning, not a blocking requirement - and
-  `merge-mcp-config.py` only registers `browser-use` when both `uvx` is on
-  PATH and `OPENAI_API_KEY` is set, same "don't write a broken entry"
-  rule as everything else here.
+1. Started pointing at `api.browser-use.com/mcp`, their paid cloud service
+   (`BROWSER_USE_API_KEY`) - the one non-self-hosted piece in an otherwise
+   self-host-everything setup, a real inconsistency once someone actually
+   looked at `.env.example` next to Firecrawl.
+2. Switched to running it locally instead: `uvx browser-use[cli] --mcp`
+   (`uvx` is Python's on-demand package runner, the same role `npx` plays
+   for the Node-based servers here). But `--mcp` runs browser-use's own
+   internal autonomous agent, and its LLM client is hardcoded to
+   `ChatOpenAI` (`browser_use/mcp/server.py`) even though the underlying
+   `browser-use` *library* supports many providers - so it only reads
+   `OPENAI_API_KEY`, not a generic "bring your own provider" key.
+   `LLMEntry` in `browser_use/config.py` doesn't even have a `base_url`
+   field, so pointing it at an OpenAI-compatible endpoint (DeepSeek,
+   OpenRouter's OpenAI-compatible mode, etc. - see
+   [docs.browser-use.com/open-source/supported-models](https://docs.browser-use.com/open-source/supported-models))
+   isn't actually wired up in the packaged MCP server, despite the docs
+   describing broad provider support at the library level. The only other
+   provider genuinely wired into `--mcp` is AWS Bedrock
+   (`MODEL_PROVIDER=bedrock`, using your AWS credentials) - a real option
+   if you already have Bedrock model access, but not a fit here.
+3. Landed on `uvx browser-use[cli] --cli-mcp` instead - a completely
+   different mode (`browser_use/mcp/cli_mcp.py`). It doesn't run an
+   internal agent at all: it exposes `browser_exec` (run Python against a
+   persistent browser session - `new_tab`, `goto_url`, `click_at_xy`,
+   `js`, `cdp`, etc.) and `browser_screenshot`, and Claude Code itself
+   decides what to do with them. No LLM key of any kind, because Claude is
+   already the one deciding - the exact role `--mcp`'s internal agent was
+   filling.
+
+`setup.sh`/`setup.ps1` check for `uvx` the same way they check for
+`docker` - a soft warning, not a blocking requirement - and
+`merge-mcp-config.py` registers `browser-use` whenever `uvx` is on PATH,
+same "don't write a broken entry" rule as everything else here, just with
+nothing left to gate on now that no key is needed.
+
+Two things found by actually running this, not just reading the source:
+
+- **`uvx browser-use[cli]` needs `--python 3.12` pinned explicitly.**
+  browser-use requires Python >=3.11, but on this box plain `uvx
+  browser-use[cli]` resolved against a stray already-managed Python 3.10
+  install and failed dependency resolution outright, even though a
+  perfectly good Python 3.14 was the actual system default - `uvx` doesn't
+  reliably pick a satisfying interpreter on its own if an older managed
+  one is already sitting around. Pinning `--python 3.12` in
+  `mcp/mcp-servers.json`'s args fixes it unconditionally (`uv` downloads
+  3.12 on demand if it isn't already installed).
+- **Chromium install is not something setup.sh/setup.ps1 run for you.**
+  `uvx browser-use[cli] install` (needed once, before first real use)
+  runs `playwright install chromium --with-deps` on Linux, and
+  `--with-deps` shells out to `sudo apt-get install` for system libraries
+  - which hung silently the first time because it was wrapped in a `spin`
+  spinner that hides command output, swallowing what should have been an
+  interactive sudo password prompt. Pulled it out of the automated steps
+  entirely; both scripts now just print the exact command to run once in
+  the final summary, the same "tell them what's left" treatment already
+  used for the Bifrost virtual key. (Windows doesn't hit the sudo case -
+  Playwright's `--with-deps` branch is Linux-only - but the instruction is
+  kept identical across both scripts for consistency.)
 
 ## Codegraph over Graphify
 

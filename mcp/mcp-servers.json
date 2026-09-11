@@ -28,11 +28,8 @@
     },
     "browser-use": {
       "command": "uvx",
-      "args": ["browser-use[cli]", "--mcp"],
-      "env": {
-        "OPENAI_API_KEY": "YOUR_OPENAI_API_KEY_HERE"
-      },
-      "description": "Agentic browsing - give it a task, it decides the steps. Self-hosted: runs locally via `uvx browser-use[cli] --mcp`, no call to api.browser-use.com's paid cloud service. Needs an OpenAI key specifically (not a browser-use one) - the MCP server's LLM client is hardcoded to ChatOpenAI even though the underlying browser-use library supports other providers. Optional: BROWSER_USE_LLM_MODEL to override the default model. Requires `uv`/`uvx` on PATH (https://docs.astral.sh/uv/). Complements lightpanda-playwright below (agent layer vs. browser engine, not a substitute)."
+      "args": ["--python", "3.12", "browser-use[cli]", "--cli-mcp"],
+      "description": "Low-level browser control (browser_exec/browser_screenshot) backed by browser-use's Chromium-based \"browser harness\" - Claude Code itself decides the steps by writing the automation code, rather than browser-use running its own internal LLM agent. No API key of any kind needed, unlike browser-use's other MCP mode (--mcp, an autonomous agent hardcoded to OpenAI - see ../docs/DECISIONS.md). --python 3.12 is pinned because browser-use needs >=3.11 and uvx isn't guaranteed to pick a satisfying interpreter on its own (see ../docs/DECISIONS.md). Requires `uv`/`uvx` on PATH (https://docs.astral.sh/uv/) and Chromium installed once via `uvx browser-use[cli] install` (may prompt for sudo on Linux - see ../docs/DECISIONS.md, not something setup.sh/setup.ps1 run for you). Complements lightpanda-playwright below (this is exec-driven and stateful; that one is the standard Playwright MCP tool surface)."
     },
     "lightpanda-playwright": {
       "command": "npx",

@@ -4,7 +4,7 @@
 # prints exactly what's left for you to do by hand (secrets, Bifrost UI).
 #
 # Optional config via env vars or a repo-root .env file (see .env.example):
-#   GITHUB_TOKEN, BROWSER_USE_API_KEY, OBSIDIAN_VAULT_PATH,
+#   GITHUB_TOKEN, OBSIDIAN_VAULT_PATH,
 #   SKIP_FIRECRAWL=1, SKIP_BIFROST=1
 #
 # Note: Lightpanda has no native Windows build yet - that piece only runs
@@ -109,6 +109,13 @@ if (Get-Command codegraph -ErrorAction SilentlyContinue) {
     Warn "codegraph install failed - skipping registration"
 }
 
+Step "browser-use (self-hosted, Claude-driven browser control)"
+if ($env:HAS_UVX -eq "true") {
+    Ok "will register (see summary below for the one-time Chromium install)"
+} else {
+    Skip "uvx not available"
+}
+
 Step "librarian-mcp (Obsidian)"
 if (-not (Get-Command librarian-mcp -ErrorAction SilentlyContinue)) {
     Invoke-Spin "Installing librarian-mcp..." "pwsh" @("-NoProfile", "-Command", "irm https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.ps1 | iex")
@@ -177,8 +184,11 @@ $summaryLines = @(
     "   (command/args/env are in mcp/mcp-servers.json)."
 )
 if (-not ($env:GITHUB_TOKEN -or $env:GITHUB_PERSONAL_ACCESS_TOKEN)) { $summaryLines += "- Set GITHUB_TOKEN and re-run to register the GitHub MCP server." }
-if ($env:HAS_UVX -ne "true") { $summaryLines += "- Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server." }
-elseif (-not $env:OPENAI_API_KEY) { $summaryLines += "- Set OPENAI_API_KEY and re-run to register the browser-use MCP server (self-hosted, needs an OpenAI key specifically)." }
+if ($env:HAS_UVX -eq "true") {
+    $summaryLines += "- Run 'uvx --python 3.12 browser-use[cli] install' once before first using the browser-use MCP (installs Chromium)."
+} else {
+    $summaryLines += "- Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server."
+}
 if (-not $env:OBSIDIAN_VAULT_PATH) { $summaryLines += "- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server." }
 $summaryLines += "Run scripts\verify-env.ps1 anytime to recheck what's installed."
 $summary = $summaryLines -join "`n"

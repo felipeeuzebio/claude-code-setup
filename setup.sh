@@ -5,7 +5,7 @@
 # prints exactly what's left for you to do by hand (secrets, Bifrost UI).
 #
 # Optional config via env vars or a repo-root .env file (see .env.example):
-#   GITHUB_TOKEN, BROWSER_USE_API_KEY, OBSIDIAN_VAULT_PATH,
+#   GITHUB_TOKEN, OBSIDIAN_VAULT_PATH,
 #   SKIP_FIRECRAWL=1, SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
 set -uo pipefail
 
@@ -97,6 +97,13 @@ else
   warn "codegraph install failed - skipping registration"
 fi
 
+step "browser-use (self-hosted, Claude-driven browser control)"
+if [ "$HAS_UVX" = true ]; then
+  ok "will register (see summary below for the one-time Chromium install)"
+else
+  skip "uvx not available"
+fi
+
 step "librarian-mcp (Obsidian)"
 if ! command -v librarian-mcp >/dev/null; then
   spin "Installing librarian-mcp..." bash -c "curl -fsSL https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh | sh"
@@ -184,12 +191,12 @@ SUMMARY="1. Open http://localhost:8080, finish Bifrost onboarding, generate a vi
    (command/args/env are in mcp/mcp-servers.json)."
 [ -n "${GITHUB_TOKEN:-}${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ] || SUMMARY="$SUMMARY
 - Set GITHUB_TOKEN and re-run to register the GitHub MCP server."
-if [ "$HAS_UVX" != true ]; then
+if [ "$HAS_UVX" = true ]; then
+  SUMMARY="$SUMMARY
+- Run 'uvx --python 3.12 browser-use[cli] install' once before first using the browser-use MCP (installs Chromium, may prompt for sudo on Linux)."
+else
   SUMMARY="$SUMMARY
 - Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server."
-elif [ -z "${OPENAI_API_KEY:-}" ]; then
-  SUMMARY="$SUMMARY
-- Set OPENAI_API_KEY and re-run to register the browser-use MCP server (self-hosted, needs an OpenAI key specifically)."
 fi
 [ -n "${OBSIDIAN_VAULT_PATH:-}" ] || SUMMARY="$SUMMARY
 - Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."

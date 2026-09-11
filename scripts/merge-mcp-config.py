@@ -28,8 +28,6 @@ def env_flag(name: str) -> bool:
 
 def build_plan(env: dict) -> dict[str, tuple[bool, Fill]]:
     github_token = env.get("GITHUB_TOKEN") or env.get("GITHUB_PERSONAL_ACCESS_TOKEN") or ""
-    openai_key = env.get("OPENAI_API_KEY", "")
-    browser_use_model = env.get("BROWSER_USE_LLM_MODEL", "")
     vault_path = env.get("OBSIDIAN_VAULT_PATH", "")
     firecrawl_url = env.get("FIRECRAWL_API_URL", "http://localhost:3002")
     skip_firecrawl = env_flag("SKIP_FIRECRAWL")
@@ -50,17 +48,7 @@ def build_plan(env: dict) -> dict[str, tuple[bool, Fill]]:
             bool(vault_path),
             lambda s: {**s, "args": [vault_path]},
         ),
-        "browser-use": (
-            bool(openai_key) and has_uvx,
-            lambda s: {
-                **s,
-                "env": {
-                    **s.get("env", {}),
-                    "OPENAI_API_KEY": openai_key,
-                    **({"BROWSER_USE_LLM_MODEL": browser_use_model} if browser_use_model else {}),
-                },
-            },
-        ),
+        "browser-use": (has_uvx, lambda s: s),
         "lightpanda-playwright": (has_lightpanda, lambda s: s),
     }
 
