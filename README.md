@@ -21,7 +21,7 @@ docs/DECISIONS.md Why things are configured the way they are
 | GitHub | repo/issue/PR operations | needs `GITHUB_PERSONAL_ACCESS_TOKEN` |
 | Context7 | live library docs lookup | no key required |
 | Firecrawl | web scraping/crawling | self-hosted via Docker Compose, see `firecrawl/` |
-| Obsidian (mcp-obsidian) | read/search/write your vault | needs Obsidian's Local REST API plugin + key |
+| Obsidian (librarian-mcp) | read/search/write your vault + graph analytics | reads the vault off disk, no Obsidian process needed |
 | browser-use | agentic browsing (task → actions) | hosted API, needs `BROWSER_USE_API_KEY` |
 | Lightpanda | fast local CDP browser engine | pairs with the Playwright MCP via `--cdp-endpoint` |
 | Codegraph | codebase knowledge graph (callers/callees/impact) | already installed locally, registered directly |
@@ -43,3 +43,9 @@ Graphify was evaluated and intentionally left out — see `docs/DECISIONS.md`.
 [abhishekray07/claude-md-templates](https://github.com/abhishekray07/claude-md-templates)
 and cross-checked against
 [centminmod/my-claude-code-setup](https://github.com/centminmod/my-claude-code-setup).
+
+The Obsidian MCP choice (`librarian-mcp`) and general future discovery came
+from [hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) -
+the largest curated list of Claude Code resources (skills, hooks,
+statuslines, MCP servers, agent orchestration). Worth a periodic re-check
+as this setup evolves.

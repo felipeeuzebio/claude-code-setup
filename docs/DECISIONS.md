@@ -75,6 +75,30 @@ it can't answer structural questions — "who calls this", "what breaks if I
 change this" — that Codegraph answers directly from a persisted graph
 instead of re-deriving them from text search every time.
 
+## Obsidian: librarian-mcp instead of mcp-obsidian
+
+Swapped after checking [hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code)
+(53.9k stars, the largest curated Claude Code resource list) which surfaced
+several Obsidian options under its "Obsidian" section. Went with
+[librarian-mcp](https://github.com/ngmeyer/librarian-mcp) over the
+originally-planned `MarkusPfundstein/mcp-obsidian` because:
+
+- It reads the vault directory straight off disk - Obsidian doesn't need
+  to be running, and there's no dependency on the community "Local REST
+  API" plugin or an `OBSIDIAN_API_KEY`.
+- It sidesteps `mcp-obsidian`'s known stability issue (pinned to Python
+  MCP SDK `<2.0.0`, `BrokenPipeError` on newer SDKs).
+- Broader tool surface: 17 tools including trigram search, auto-wikilinks
+  on write, and real graph analytics (Louvain communities, PageRank,
+  shortest-path) versus mcp-obsidian's basic read/search/write.
+- Ships a Linux x86_64 release binary + installer script, so it works
+  fine on this WSL2 box without a Homebrew dependency.
+
+Also worth a look but not adopted here: `agentcairn`, `claude-bedrock`,
+and `claude-obsidian` from the same list - all take a more opinionated
+"second brain" / Zettelkasten angle rather than a plain MCP server, which
+is more setup than this pass needed.
+
 ## Repo: private
 
 The repo stores MCP server topology and setup scripts referencing personal

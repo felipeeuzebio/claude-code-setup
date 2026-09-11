@@ -22,14 +22,9 @@
       "description": "Self-hosted Firecrawl (see ../firecrawl/), verified working via a live scrape smoke test. USE_DB_AUTHENTICATION=false in this setup so no FIRECRAWL_API_KEY is needed; add one back if you turn auth on. To use Firecrawl Cloud instead, drop FIRECRAWL_API_URL and set a real FIRECRAWL_API_KEY."
     },
     "obsidian": {
-      "command": "uvx",
-      "args": ["mcp-obsidian"],
-      "env": {
-        "OBSIDIAN_API_KEY": "YOUR_OBSIDIAN_LOCAL_REST_API_KEY_HERE",
-        "OBSIDIAN_HOST": "127.0.0.1",
-        "OBSIDIAN_PORT": "27124"
-      },
-      "description": "Read/search/write your Obsidian vault. Requires the 'Local REST API' community plugin (coddingtonbear/obsidian-local-rest-api) enabled in Obsidian, with Obsidian running. Known issue: Python MCP SDK 2.0+ breaks this server's handler registration - it's pinned <2.0.0 upstream; if you see BrokenPipeError mid-session, check for an update."
+      "command": "librarian-mcp",
+      "args": ["/path/to/your/vault"],
+      "description": "Read/search/write your Obsidian vault via librarian-mcp (github.com/ngmeyer/librarian-mcp) - reads the vault folder straight off disk, so Obsidian does not need to be running. Chosen over MarkusPfundstein/mcp-obsidian (see ../docs/DECISIONS.md) for that reason plus a richer tool set: trigram search, auto-wikilinks on write, and real graph analytics (Louvain communities, PageRank, shortest-path). Install: curl -fsSL https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh | sh"
     },
     "browser-use": {
       "type": "http",
