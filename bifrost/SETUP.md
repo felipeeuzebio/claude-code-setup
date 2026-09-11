@@ -3,6 +3,12 @@
 Bifrost (Maxim AI) fronts every MCP server behind one endpoint and doubles as
 an LLM gateway. Docs: https://docs.getbifrost.ai
 
+Status as of this setup: running locally via `npx -y @maximhq/bifrost`,
+responding on `http://localhost:8080`. It was started in the foreground of a
+background shell job, not as a managed service - it will not survive a
+reboot. Turn it into a real service (systemd unit, pm2, or the Docker form)
+once you're happy with the config.
+
 ## 1. Run it
 
 Pick one:

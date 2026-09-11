@@ -25,6 +25,21 @@ was not found in-distro at the start of this session but was present by
 the time `scripts/setup-firecrawl.sh` ran — confirming WSL integration was
 enabled correctly.
 
+Two real issues came up bringing the stack up for the first time, both
+fixed and captured in `scripts/setup-firecrawl.sh` / `firecrawl/.env.example`:
+
+- **RabbitMQ `EACCES` on `.erlang.cookie`** on the very first `up` - a
+  known Docker-Desktop-on-WSL2 anonymous-volume permission quirk. Fixed by
+  `docker compose down -v && docker compose up -d` once; if it recurs,
+  it's the same class of issue, not a config problem.
+- **`NUQ_BACKEND=postgres` is not a valid value** - the API only accepts
+  `pg` or `fdb`. Set to `pg` since this compose file brings up
+  `nuq-postgres`.
+
+Verified working end-to-end with a live `POST /v1/scrape` against
+`https://example.com` through the running container, not just a port
+check.
+
 ## browser-use + Lightpanda: both, not either/or
 
 These aren't competing choices — they sit at different layers:

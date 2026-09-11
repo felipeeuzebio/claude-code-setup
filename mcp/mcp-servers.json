@@ -17,10 +17,9 @@
       "command": "npx",
       "args": ["-y", "firecrawl-mcp@3.23.7"],
       "env": {
-        "FIRECRAWL_API_URL": "http://localhost:3002",
-        "FIRECRAWL_API_KEY": "OMIT_IF_SELF_HOSTED_INSTANCE_HAS_NO_AUTH"
+        "FIRECRAWL_API_URL": "http://localhost:3002"
       },
-      "description": "Self-hosted Firecrawl (see ../firecrawl/). Swap FIRECRAWL_API_URL for the cloud default and set a real FIRECRAWL_API_KEY to use Firecrawl Cloud instead."
+      "description": "Self-hosted Firecrawl (see ../firecrawl/), verified working via a live scrape smoke test. USE_DB_AUTHENTICATION=false in this setup so no FIRECRAWL_API_KEY is needed; add one back if you turn auth on. To use Firecrawl Cloud instead, drop FIRECRAWL_API_URL and set a real FIRECRAWL_API_KEY."
     },
     "obsidian": {
       "command": "uvx",
