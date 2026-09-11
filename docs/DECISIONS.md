@@ -113,28 +113,27 @@ writing), so `setup.ps1` skips it outright rather than half-installing;
 the full stack including Lightpanda needs `setup.sh` under WSL2 on
 Windows machines.
 
-## /init-claude-md: a custom slash command, not a shell script
+## CLAUDE.md init: an interactive setup-time ask, not an installed command
 
-Automating "fill in `claude-md/GENERIC_TEMPLATE.md` for this repo" needs an
-LLM doing codebase analysis, not string substitution - so the natural unit
-is a prompt, not a script. Packaged it as a custom slash command
-(`claude-md/init-claude-md.md`, installed to `~/.claude/commands/` by
-setup.sh/setup.ps1) rather than a `claude -p "..."` wrapper script, because:
+First pass at this made `/init-claude-md` a slash command installed into
+`~/.claude/commands/`. Reworked into an interactive step inside
+setup.sh/setup.ps1 instead, because the actual want was narrower: ask once,
+at setup time, whether to generate this repo's `CLAUDE.md` now - and if the
+answer is no (or the run is non-interactive), just print the prompt so it
+can be pasted into any Claude Code session whenever it's wanted, here or in
+another project. That doesn't need a permanently-installed command:
 
-- It needs to be usable interactively, mid-session, in whatever project
-  you're already sitting in - a separate script would mean leaving the
-  session or invoking a subshell.
-- Claude Code already has a built-in generic `/init`; naming this
-  `/init-claude-md` avoids colliding with it while making clear it's a
-  different, more opinionated thing (this repo's specific template).
-- The command embeds the full template text itself rather than reading
-  `claude-md/GENERIC_TEMPLATE.md` at runtime, so it still works in a
-  project that never cloned this setup repo - only the *installed* copy
-  needs to exist, on any machine this setup ran on.
-
-It refuses to silently overwrite an existing `CLAUDE.md` - shows what it'd
-change and waits for a yes, since a hand-written `CLAUDE.md` often encodes
-project knowledge no repo-scan will rediscover.
+- `claude-md/init-prompt.md` holds the prompt text (instructions + the
+  `GENERIC_TEMPLATE.md` structure) with no slash-command frontmatter - it's
+  just a prompt, read by the setup scripts and cat-able by a human.
+- If `CLAUDE.md` already exists in the repo, the step is skipped outright -
+  it never overwrites hand-written project knowledge a repo-scan wouldn't
+  rediscover. The "yes" path also tells the model to summarize changes and
+  wait for confirmation if the file somehow is present, as a second guard.
+- A non-interactive run (no TTY on stdin) never blocks on a prompt - it
+  just prints the copy-paste block, same as answering no.
+- Saying yes runs `claude -p "$(cat claude-md/init-prompt.md)"` right there,
+  since setup.sh/setup.ps1 already `cd` to the repo root before this step.
 
 ## Repo: private
 

@@ -75,11 +75,29 @@ Step "Lightpanda (fast local browser engine)"
 Skip "no native Windows build yet - run setup.sh under WSL2 for this piece"
 $env:HAS_LIGHTPANDA = "false"
 
-Step "Installing /init-claude-md slash command"
-$commandsDir = Join-Path $HOME ".claude\commands"
-New-Item -ItemType Directory -Force -Path $commandsDir | Out-Null
-Copy-Item (Join-Path $RepoRoot "claude-md\init-claude-md.md") (Join-Path $commandsDir "init-claude-md.md") -Force
-Ok "run /init-claude-md in any project to generate its CLAUDE.md from the standard template"
+Step "CLAUDE.md for this repo"
+$promptFile = Join-Path $RepoRoot "claude-md\init-prompt.md"
+$claudeMdPath = Join-Path $RepoRoot "CLAUDE.md"
+function Show-Prompt($lead) {
+    Write-Host "  $lead"
+    Write-Host "  ----------------------------------------------------------------"
+    Get-Content $promptFile | ForEach-Object { Write-Host "  $_" }
+    Write-Host "  ----------------------------------------------------------------"
+}
+if (Test-Path $claudeMdPath) {
+    Skip "CLAUDE.md already exists - not touching it"
+} elseif ([Console]::IsInputRedirected) {
+    Show-Prompt "Not an interactive terminal - here's the prompt, paste it into any Claude Code session when you're ready:"
+} else {
+    $reply = Read-Host "  Initialize CLAUDE.md for this repo now with Claude Code? [y/N]"
+    if ($reply -match '^[Yy]$' -and (Get-Command claude -ErrorAction SilentlyContinue)) {
+        claude -p (Get-Content $promptFile -Raw)
+        Ok "CLAUDE.md generated - review it"
+    } else {
+        if ($reply -match '^[Yy]$') { Warn "claude CLI not found on PATH - here's the prompt instead" }
+        Show-Prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
+    }
+}
 
 Step "Registering MCP servers into ~/.claude.json"
 & $python (Join-Path $RepoRoot "scripts\merge-mcp-config.py")

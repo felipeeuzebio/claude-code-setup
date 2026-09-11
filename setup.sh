@@ -82,10 +82,28 @@ else
   skip "not supported on $OS_NAME without WSL (lightpanda has no native Windows build yet)"
 fi
 
-step "Installing /init-claude-md slash command"
-mkdir -p "$HOME/.claude/commands"
-cp "$REPO_ROOT/claude-md/init-claude-md.md" "$HOME/.claude/commands/init-claude-md.md"
-ok "run /init-claude-md in any project to generate its CLAUDE.md from the standard template"
+step "CLAUDE.md for this repo"
+PROMPT_FILE="$REPO_ROOT/claude-md/init-prompt.md"
+if [ -f "$REPO_ROOT/CLAUDE.md" ]; then
+  skip "CLAUDE.md already exists - not touching it"
+elif [ ! -t 0 ]; then
+  echo "  Not an interactive terminal - here's the prompt, paste it into any Claude Code session when you're ready:"
+  echo "  ----------------------------------------------------------------"
+  cat "$PROMPT_FILE"
+  echo "  ----------------------------------------------------------------"
+else
+  read -r -p "  Initialize CLAUDE.md for this repo now with Claude Code? [y/N] " REPLY
+  if [[ "$REPLY" =~ ^[Yy]$ ]] && command -v claude >/dev/null; then
+    claude -p "$(cat "$PROMPT_FILE")"
+    ok "CLAUDE.md generated - review it"
+  else
+    [[ "$REPLY" =~ ^[Yy]$ ]] && warn "claude CLI not found on PATH - here's the prompt instead"
+    echo "  Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
+    echo "  ----------------------------------------------------------------"
+    cat "$PROMPT_FILE"
+    echo "  ----------------------------------------------------------------"
+  fi
+fi
 
 step "Registering MCP servers into ~/.claude.json"
 python3 "$REPO_ROOT/scripts/merge-mcp-config.py"
