@@ -51,8 +51,13 @@ It prints exactly what's left afterward: generating a Bifrost virtual key
 through Bifrost instead of running direct. See `bifrost/SETUP.md` for that
 part in detail.
 
-Separately, copy `claude-md/GENERIC_TEMPLATE.md` into any project as
-`CLAUDE.md` and fill in the blanks.
+Separately, `setup.sh`/`setup.ps1` also install a `/init-claude-md` slash
+command (source: `claude-md/init-claude-md.md`) into `~/.claude/commands/`,
+available in every project from then on. Run `/init-claude-md` inside any
+repo and Claude fills in `claude-md/GENERIC_TEMPLATE.md`'s structure from
+that repo's actual manifests/scripts/layout - not Claude Code's generic
+`/init` output, and not a hand-filled copy-paste either. It shows a diff
+and asks before overwriting an existing `CLAUDE.md`.
 
 ## Credit
 

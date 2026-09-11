@@ -113,6 +113,29 @@ writing), so `setup.ps1` skips it outright rather than half-installing;
 the full stack including Lightpanda needs `setup.sh` under WSL2 on
 Windows machines.
 
+## /init-claude-md: a custom slash command, not a shell script
+
+Automating "fill in `claude-md/GENERIC_TEMPLATE.md` for this repo" needs an
+LLM doing codebase analysis, not string substitution - so the natural unit
+is a prompt, not a script. Packaged it as a custom slash command
+(`claude-md/init-claude-md.md`, installed to `~/.claude/commands/` by
+setup.sh/setup.ps1) rather than a `claude -p "..."` wrapper script, because:
+
+- It needs to be usable interactively, mid-session, in whatever project
+  you're already sitting in - a separate script would mean leaving the
+  session or invoking a subshell.
+- Claude Code already has a built-in generic `/init`; naming this
+  `/init-claude-md` avoids colliding with it while making clear it's a
+  different, more opinionated thing (this repo's specific template).
+- The command embeds the full template text itself rather than reading
+  `claude-md/GENERIC_TEMPLATE.md` at runtime, so it still works in a
+  project that never cloned this setup repo - only the *installed* copy
+  needs to exist, on any machine this setup ran on.
+
+It refuses to silently overwrite an existing `CLAUDE.md` - shows what it'd
+change and waits for a yes, since a hand-written `CLAUDE.md` often encodes
+project knowledge no repo-scan will rediscover.
+
 ## Repo: private
 
 The repo stores MCP server topology and setup scripts referencing personal

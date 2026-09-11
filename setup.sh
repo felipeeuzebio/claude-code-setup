@@ -81,6 +81,11 @@ else
   skip "not supported on $OS_NAME without WSL (lightpanda has no native Windows build yet)"
 fi
 
+step "Installing /init-claude-md slash command"
+mkdir -p "$HOME/.claude/commands"
+cp "$REPO_ROOT/claude-md/init-claude-md.md" "$HOME/.claude/commands/init-claude-md.md"
+ok "run /init-claude-md in any project to generate its CLAUDE.md from the standard template"
+
 step "Registering MCP servers into ~/.claude.json"
 node "$REPO_ROOT/scripts/merge-mcp-config.js"
 
