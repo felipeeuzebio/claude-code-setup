@@ -50,7 +50,9 @@ Output is styled with [gum](https://github.com/charmbracelet/gum) if it's
 on your PATH; if not, the script downloads a copy into a throwaway temp
 directory for just this run and deletes it on exit - nothing gets
 installed system-wide, and everything still works in plain text if gum
-can't be reached at all (offline, unsupported OS/arch).
+can't be reached at all (offline, unsupported OS/arch). Ctrl+C at any
+point - including at the CLAUDE.md prompt or during an install spinner -
+quits the whole thing cleanly rather than just skipping that one step.
 
 It prints exactly what's left afterward: generating a Bifrost virtual key
 (an interactive UI step) and adding any servers you'd rather gateway

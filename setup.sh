@@ -20,19 +20,12 @@ fi
 
 # gum is cosmetic only - if it can't be found or downloaded, everything
 # below falls back to plain output instead of failing the whole setup.
-printf 'Checking for gum (prettier output)...\n'
+# Resolution is silent; nothing is printed either way.
 GUM=""
 GUM_TMP_DIR=""
 # shellcheck disable=SC1091
 source "$REPO_ROOT/scripts/ensure-gum.sh"
-if [ -n "$GUM_TMP_DIR" ]; then
-  trap 'rm -rf "$GUM_TMP_DIR"' EXIT
-  printf 'Downloaded a temporary gum for this run (not installed system-wide).\n'
-elif [ -n "$GUM" ]; then
-  printf 'Using your existing gum install.\n'
-else
-  printf 'gum unavailable (offline, or unsupported OS/arch) - continuing with plain output.\n'
-fi
+[ -n "$GUM_TMP_DIR" ] && trap 'rm -rf "$GUM_TMP_DIR"' EXIT
 
 step() {
   if [ -n "$GUM" ]; then "$GUM" style --bold --foreground 212 --margin "1 0 0 0" "==> $1"
@@ -41,11 +34,26 @@ step() {
 ok()   { if [ -n "$GUM" ]; then "$GUM" style --foreground 2 "  ✓ $1";   else printf '  ok   %s\n' "$1"; fi; }
 skip() { if [ -n "$GUM" ]; then "$GUM" style --foreground 8 "  - $1";   else printf '  skip %s\n' "$1"; fi; }
 warn() { if [ -n "$GUM" ]; then "$GUM" style --foreground 3 "  ! $1" >&2; else printf '  warn %s\n' "$1" >&2; fi; }
+# gum's TUI runs the terminal in raw mode, so Ctrl+C there is a keystroke
+# gum interprets itself (exit 130), not a signal that would stop this
+# script - so every gum confirm/spin call is checked for it explicitly.
+quit_setup() {
+  echo
+  if [ -n "$GUM" ]; then "$GUM" style --foreground 1 --bold "Setup cancelled."
+  else echo "Setup cancelled."; fi
+  exit 130
+}
 # Runs "$@" with a spinner; output only surfaces if the command fails.
+# Quits the whole setup (not just this step) if Ctrl+C was pressed.
 spin() {
-  local title="$1"; shift
-  if [ -n "$GUM" ]; then "$GUM" spin --title "$title" --show-error -- "$@"
-  else echo "  ... $title"; "$@"; fi
+  local title="$1" rc; shift
+  if [ -n "$GUM" ]; then
+    "$GUM" spin --title "$title" --show-error -- "$@"; rc=$?
+    [ "$rc" -eq 130 ] && quit_setup
+    return "$rc"
+  else
+    echo "  ... $title"; "$@"
+  fi
 }
 
 step "Checking required tools"
@@ -121,6 +129,7 @@ elif [ ! -t 0 ]; then
 else
   if [ -n "$GUM" ]; then
     "$GUM" confirm "Initialize CLAUDE.md for this repo now with Claude Code?"; CONFIRMED=$?
+    [ "$CONFIRMED" -eq 130 ] && quit_setup
   else
     read -r -p "  Initialize CLAUDE.md for this repo now with Claude Code? [y/N] " REPLY
     [[ "$REPLY" =~ ^[Yy]$ ]]; CONFIRMED=$?

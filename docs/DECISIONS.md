@@ -166,6 +166,36 @@ against this machine's real node/docker/codegraph/librarian-mcp/git with a
 throwaway shell-script stand-in for `gum` on PATH (since a Windows PE
 binary can't execute on Linux) to exercise the control flow itself.
 
+## gum bootstrap is silent, and Ctrl+C actually quits setup
+
+Two follow-ups after the gum pass above landed:
+
+- Dropped the "Checking for gum..." / "Downloaded a temporary gum..." /
+  "Using your existing gum install." lines. They were only ever about the
+  bootstrap mechanics, not the setup itself - useful while building this,
+  not for someone just running it.
+- Ctrl+C during a `gum confirm` or `gum spin` did *not* stop the script.
+  gum's TUI puts the terminal in raw mode, so Ctrl+C there is a keystroke
+  gum itself interprets (confirmed empirically: exit code 130, distinct
+  from 0=yes/1=no for confirm, and from any other command failure for
+  spin) - it never becomes an actual SIGINT delivered to this shell. Left
+  unhandled, the script would treat a Ctrl+C as "answered no" or "that one
+  install failed" and barrel on into the next step, which is exactly what
+  "I should be able to quit the setup" was flagging.
+
+Fix: every `gum confirm`/`gum spin` call now checks for exit code 130
+specifically and calls `quit_setup`/`Stop-Setup`, which prints "Setup
+cancelled." and exits 130 itself - triggering the same EXIT trap /
+`finally` block that cleans up a temp-downloaded gum, so quitting mid-setup
+doesn't leave anything behind. Verified both the spin and confirm cancel
+paths on both setup.sh and setup.ps1 (the latter via the same temporary
+Linux PowerShell build used to verify the gum work itself), using a
+throwaway stand-in `gum` script that can simulate returning 130 on demand
+since a real interactive Ctrl+C can't be scripted here. Plain-fallback
+mode (no gum) needed no change - a real terminal `read`/`Read-Host` with
+no raw-mode TUI in front of it already receives an actual SIGINT/Ctrl+C
+and stops the script by default.
+
 ## Repo: private
 
 The repo stores MCP server topology and setup scripts referencing personal

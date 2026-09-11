@@ -24,11 +24,8 @@ if (Test-Path $envFile) {
 
 # gum is cosmetic only - if it can't be found or downloaded, everything
 # below falls back to plain output instead of failing the whole setup.
-Write-Host "Checking for gum (prettier output)..."
+# Resolution is silent; nothing is printed either way.
 . (Join-Path $RepoRoot "scripts\ensure-gum.ps1")
-if ($GumTmpDir) { Write-Host "Downloaded a temporary gum for this run (not installed system-wide)." }
-elseif ($Gum) { Write-Host "Using your existing gum install." }
-else { Write-Host "gum unavailable (offline, or unsupported OS/arch) - continuing with plain output." }
 
 function Step($msg) {
     if ($Gum) { "==> $msg" | & $Gum style --bold --foreground 212 --margin "1 0 0 0" }
@@ -37,14 +34,27 @@ function Step($msg) {
 function Ok($msg)   { if ($Gum) { "  + $msg" | & $Gum style --foreground 2 } else { Write-Host "  ok   $msg" } }
 function Skip($msg) { if ($Gum) { "  - $msg" | & $Gum style --foreground 8 } else { Write-Host "  skip $msg" } }
 function Warn($msg) { if ($Gum) { "  ! $msg" | & $Gum style --foreground 3 } else { Write-Host "  warn $msg" -ForegroundColor Yellow } }
-# Runs $exe with $exeArgs, showing a spinner; output only surfaces on failure.
+# gum's TUI runs the console in raw mode, so Ctrl+C there is a keystroke
+# gum interprets itself (exit 130), not a signal that would stop this
+# script - so every gum confirm/spin call is checked for it explicitly.
+function Stop-Setup {
+    if ($Gum) { "Setup cancelled." | & $Gum style --foreground 1 --bold } else { Write-Host "Setup cancelled." }
+    exit 130
+}
+# Runs $exe with $exeArgs, showing a spinner; output only surfaces on
+# failure. Quits the whole setup (not just this step) if Ctrl+C was pressed.
 function Invoke-Spin($title, $exe, [string[]]$exeArgs) {
-    if ($Gum) { & $Gum spin --title $title --show-error -- $exe @exeArgs }
-    else { Write-Host "  ... $title"; & $exe @exeArgs }
+    if ($Gum) {
+        & $Gum spin --title $title --show-error -- $exe @exeArgs
+        if ($LASTEXITCODE -eq 130) { Stop-Setup }
+    } else { Write-Host "  ... $title"; & $exe @exeArgs }
 }
 function Confirm-Gum($prompt) {
-    if ($Gum) { & $Gum confirm $prompt; return ($LASTEXITCODE -eq 0) }
-    else { return ((Read-Host "  $prompt [y/N]") -match '^[Yy]$') }
+    if ($Gum) {
+        & $Gum confirm $prompt
+        if ($LASTEXITCODE -eq 130) { Stop-Setup }
+        return ($LASTEXITCODE -eq 0)
+    } else { return ((Read-Host "  $prompt [y/N]") -match '^[Yy]$') }
 }
 function Show-Prompt($lead, $promptFile) {
     Write-Host "  $lead"
