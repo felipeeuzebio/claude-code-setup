@@ -28,7 +28,7 @@ if (Test-Path $envFile) {
 . (Join-Path $RepoRoot "scripts\ensure-gum.ps1")
 
 function Step($msg) {
-    if ($Gum) { "==> $msg" | & $Gum style --bold --foreground 212 --margin "1 0 0 0" }
+    if ($Gum) { Write-Host ""; "==> $msg" | & $Gum style --foreground 212 }
     else { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 }
 function Ok($msg)   { if ($Gum) { "  + $msg" | & $Gum style --foreground 2 } else { Write-Host "  ok   $msg" } }
@@ -38,14 +38,16 @@ function Warn($msg) { if ($Gum) { "  ! $msg" | & $Gum style --foreground 3 } els
 # gum interprets itself (exit 130), not a signal that would stop this
 # script - so every gum confirm/spin call is checked for it explicitly.
 function Stop-Setup {
-    if ($Gum) { "Setup cancelled." | & $Gum style --foreground 1 --bold } else { Write-Host "Setup cancelled." }
+    if ($Gum) { "Setup cancelled." | & $Gum style --foreground 1 } else { Write-Host "Setup cancelled." }
     exit 130
 }
 # Runs $exe with $exeArgs, showing a spinner; output only surfaces on
 # failure. Quits the whole setup (not just this step) if Ctrl+C was pressed.
+# --spinner line: plain ASCII (-\|/), not gum's default Braille-dot frames,
+# which render as mangled boxes in terminals/fonts without that Unicode block.
 function Invoke-Spin($title, $exe, [string[]]$exeArgs) {
     if ($Gum) {
-        & $Gum spin --title $title --show-error -- $exe @exeArgs
+        & $Gum spin --spinner line --title $title --show-error -- $exe @exeArgs
         if ($LASTEXITCODE -eq 130) { Stop-Setup }
     } else { Write-Host "  ... $title"; & $exe @exeArgs }
 }
@@ -172,7 +174,7 @@ if (-not $env:OBSIDIAN_VAULT_PATH) { $summaryLines += "- Set OBSIDIAN_VAULT_PATH
 $summaryLines += "Run scripts\verify-env.ps1 anytime to recheck what's installed."
 $summary = $summaryLines -join "`n"
 
-if ($Gum) { $summary | & $Gum style --border rounded --padding "1 2" --margin "0 0 1 0" }
+if ($Gum) { $summary | & $Gum style --foreground 212 }
 else { Write-Host $summary }
 
 } finally {

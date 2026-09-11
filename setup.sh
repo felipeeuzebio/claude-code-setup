@@ -28,7 +28,7 @@ source "$REPO_ROOT/scripts/ensure-gum.sh"
 [ -n "$GUM_TMP_DIR" ] && trap 'rm -rf "$GUM_TMP_DIR"' EXIT
 
 step() {
-  if [ -n "$GUM" ]; then "$GUM" style --bold --foreground 212 --margin "1 0 0 0" "==> $1"
+  if [ -n "$GUM" ]; then echo; "$GUM" style --foreground 212 "==> $1"
   else printf '\n\033[1m==> %s\033[0m\n' "$1"; fi
 }
 ok()   { if [ -n "$GUM" ]; then "$GUM" style --foreground 2 "  ✓ $1";   else printf '  ok   %s\n' "$1"; fi; }
@@ -39,16 +39,18 @@ warn() { if [ -n "$GUM" ]; then "$GUM" style --foreground 3 "  ! $1" >&2; else p
 # script - so every gum confirm/spin call is checked for it explicitly.
 quit_setup() {
   echo
-  if [ -n "$GUM" ]; then "$GUM" style --foreground 1 --bold "Setup cancelled."
+  if [ -n "$GUM" ]; then "$GUM" style --foreground 1 "Setup cancelled."
   else echo "Setup cancelled."; fi
   exit 130
 }
 # Runs "$@" with a spinner; output only surfaces if the command fails.
 # Quits the whole setup (not just this step) if Ctrl+C was pressed.
+# --spinner line: plain ASCII (-\|/), not gum's default Braille-dot frames,
+# which render as mangled boxes in terminals/fonts without that Unicode block.
 spin() {
   local title="$1" rc; shift
   if [ -n "$GUM" ]; then
-    "$GUM" spin --title "$title" --show-error -- "$@"; rc=$?
+    "$GUM" spin --spinner line --title "$title" --show-error -- "$@"; rc=$?
     [ "$rc" -eq 130 ] && quit_setup
     return "$rc"
   else
@@ -180,5 +182,5 @@ SUMMARY="1. Open http://localhost:8080, finish Bifrost onboarding, generate a vi
 SUMMARY="$SUMMARY
 Run scripts/verify-env.sh anytime to recheck what's installed."
 
-if [ -n "$GUM" ]; then "$GUM" style --border rounded --padding "1 2" --margin "0 0 1 0" "$SUMMARY"
+if [ -n "$GUM" ]; then "$GUM" style --foreground 212 "$SUMMARY"
 else echo "$SUMMARY"; fi

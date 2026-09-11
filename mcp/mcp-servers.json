@@ -24,7 +24,7 @@
     "obsidian": {
       "command": "librarian-mcp",
       "args": ["/path/to/your/vault"],
-      "description": "Read/search/write your Obsidian vault via librarian-mcp (github.com/ngmeyer/librarian-mcp) - reads the vault folder straight off disk, so Obsidian does not need to be running. Chosen over MarkusPfundstein/mcp-obsidian (see ../docs/DECISIONS.md) for that reason plus a richer tool set: trigram search, auto-wikilinks on write, and real graph analytics (Louvain communities, PageRank, shortest-path). Install: curl -fsSL https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh | sh"
+      "description": "Read/search/write your Obsidian vault via librarian-mcp (github.com/ngmeyer/librarian-mcp) - reads the vault folder straight off disk, so Obsidian does not need to be running (and it doesn't matter what OS Obsidian itself runs on). Ships native binaries for Linux/macOS/Windows. Under WSL2, point this at the /mnt/c/... path if your vault lives on the Windows side rather than a Windows-style path - see ../docs/DECISIONS.md. Chosen over MarkusPfundstein/mcp-obsidian (see ../docs/DECISIONS.md) for that reason plus a richer tool set: trigram search, auto-wikilinks on write, and real graph analytics (Louvain communities, PageRank, shortest-path). Install: curl -fsSL https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh | sh"
     },
     "browser-use": {
       "type": "http",

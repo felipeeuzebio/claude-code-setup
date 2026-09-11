@@ -99,6 +99,29 @@ and `claude-obsidian` from the same list - all take a more opinionated
 "second brain" / Zettelkasten angle rather than a plain MCP server, which
 is more setup than this pass needed.
 
+**Obsidian running on Windows while the vault is read from elsewhere:**
+librarian-mcp ships real prebuilt binaries for all three OSes, including
+`librarian-mcp-x86_64-pc-windows-msvc.zip` (confirmed via `gh api
+repos/ngmeyer/librarian-mcp/releases/latest`) - it isn't Linux/macOS-only.
+Since it reads the vault folder straight off disk rather than talking to
+the Obsidian app, the only thing that matters is which filesystem
+`OBSIDIAN_VAULT_PATH` points at relative to where librarian-mcp itself
+runs:
+
+- **`setup.ps1` (native Windows)**: use a normal Windows path, e.g.
+  `C:\Users\you\Documents\MyVault`. Obsidian and librarian-mcp are on the
+  same filesystem - no translation needed.
+- **`setup.sh` under WSL2, vault on the Windows side**: WSL2 mounts Windows
+  drives under `/mnt/c/...`, so point `OBSIDIAN_VAULT_PATH` at e.g.
+  `/mnt/c/Users/you/Documents/MyVault` instead of the Windows-style path.
+  It works, but cross-boundary file access through the 9p protocol is
+  noticeably slower than a native mount - fine for occasional reads/writes,
+  worth knowing about if you're running librarian-mcp's trigram search or
+  graph analytics over a large vault repeatedly.
+
+Either way, Obsidian.app itself doesn't need to be running at all - only
+the vault folder needs to exist wherever the path points.
+
 ## setup.sh/setup.ps1: skip rather than write broken entries
 
 Both scripts (and the `scripts/merge-mcp-config.py` they share) only add
@@ -195,6 +218,33 @@ since a real interactive Ctrl+C can't be scripted here. Plain-fallback
 mode (no gum) needed no change - a real terminal `read`/`Read-Host` with
 no raw-mode TUI in front of it already receives an actual SIGINT/Ctrl+C
 and stops the script by default.
+
+## Gum styling pared back to plain foreground colors, and a spinner-glyph fix
+
+Two more adjustments after using this for a while:
+
+- **Dropped every gum decoration except a single foreground color per
+  line**: `--bold` on step headers, the `--margin` gum was using to add
+  blank lines (replaced with a plain `echo`/`Write-Host ""` before the
+  styled line instead), and - the biggest one - the `--border rounded
+  --padding "1 2"` box around the final summary, which is now just
+  `gum style --foreground 212` over the same text. None of that added
+  information; it just made the output louder than a setup script needs
+  to be.
+- **`gum spin` now passes `--spinner line`** instead of leaving gum on its
+  default `dot` spinner. `dot`'s animation frames are single Unicode
+  Braille Pattern characters (confirmed against bubbles' spinner
+  definitions - gum vendors that package); a terminal or font without full
+  Braille Pattern coverage (common on stock Windows Terminal / WSL2 setups)
+  renders those as mangled boxes, which is what showed up as "weird
+  characters" right after the `...` in a spinner title like "Bringing up
+  self-hosted Firecrawl...". `line` animates through plain ASCII
+  (`| / - \`) instead - no font dependency, and it reads as more minimal
+  too.
+
+Re-ran `setup.sh` end-to-end afterward (piping `n` to the CLAUDE.md
+prompt) to confirm the trimmed styling still renders correctly and nothing
+regressed in the confirm/spin/summary flow.
 
 ## Repo: private
 
