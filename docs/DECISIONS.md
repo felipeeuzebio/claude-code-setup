@@ -55,8 +55,8 @@ that branches on WSL vs. native Linux is the error message printed when
 These aren't competing choices — they sit at different layers:
 
 - **browser-use** is an agent framework: give it a task in natural language,
-  it decides the steps. Kept as the hosted MCP (`api.browser-use.com/mcp`)
-  for exploratory, task-level browsing.
+  it decides the steps. Self-hosted (see the addendum below) for
+  exploratory, task-level browsing.
 - **Lightpanda** is a browser *engine* (CDP-compatible, built from scratch in
   Zig, ~11x faster / ~1/16th the memory of headless Chrome). It's wired in as
   the backend for the Playwright MCP via `--cdp-endpoint`, for
@@ -65,6 +65,29 @@ These aren't competing choices — they sit at different layers:
 Use browser-use when you'd otherwise write scraping logic by hand; use the
 Lightpanda-backed Playwright MCP when you already have a deterministic
 sequence and just want it fast and cheap to run repeatedly.
+
+**Addendum: browser-use switched from hosted to self-hosted.** It
+originally pointed at `api.browser-use.com/mcp` (their paid cloud service,
+needing `BROWSER_USE_API_KEY`) - the one non-self-hosted piece in an
+otherwise self-host-everything setup, and a real inconsistency once
+someone actually looked at `.env.example` next to Firecrawl. Switched to
+running it locally instead: `uvx browser-use[cli] --mcp` (`uvx` is
+Python's on-demand package runner, the same role `npx` plays for the
+Node-based servers here - no separate `pip install` step, just `uv` on
+PATH). Two things worth knowing before assuming any LLM key works:
+
+- The MCP server's LLM client is hardcoded to `ChatOpenAI`
+  (`browser_use/mcp/server.py`) even though the underlying `browser-use`
+  library supports Anthropic, Google, Azure, and others - so it only reads
+  `OPENAI_API_KEY` (confirmed against `browser_use/config.py`'s env-var
+  overrides for the MCP path specifically), not a generic "bring your own
+  provider" key. `BROWSER_USE_LLM_MODEL` overrides the default model if
+  needed.
+- `setup.sh`/`setup.ps1` check for `uvx` the same way they check for
+  `docker` - a soft warning, not a blocking requirement - and
+  `merge-mcp-config.py` only registers `browser-use` when both `uvx` is on
+  PATH and `OPENAI_API_KEY` is set, same "don't write a broken entry"
+  rule as everything else here.
 
 ## Codegraph over Graphify
 

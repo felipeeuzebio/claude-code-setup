@@ -16,7 +16,7 @@ check() {
 echo "Runtime:"
 check node node
 check npx npx
-check uvx uvx
+check uvx uvx   # runs the self-hosted browser-use MCP: uvx browser-use[cli] --mcp
 check docker docker
 
 echo

@@ -73,6 +73,14 @@ else
   warn "docker not available - Firecrawl self-host will be skipped (see docs/DECISIONS.md)"
 fi
 
+export HAS_UVX=false
+if command -v uvx >/dev/null; then
+  export HAS_UVX=true
+  ok "uvx $(uvx --version)"
+else
+  warn "uvx not available - browser-use (self-hosted) will be skipped (install: https://docs.astral.sh/uv/)"
+fi
+
 OS_NAME="$(uname -s)"
 CAN_USE_LIGHTPANDA=false
 [ "$OS_NAME" = "Linux" ] || [ "$OS_NAME" = "Darwin" ] && CAN_USE_LIGHTPANDA=true
@@ -176,8 +184,13 @@ SUMMARY="1. Open http://localhost:8080, finish Bifrost onboarding, generate a vi
    (command/args/env are in mcp/mcp-servers.json)."
 [ -n "${GITHUB_TOKEN:-}${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ] || SUMMARY="$SUMMARY
 - Set GITHUB_TOKEN and re-run to register the GitHub MCP server."
-[ -n "${BROWSER_USE_API_KEY:-}" ] || SUMMARY="$SUMMARY
-- Set BROWSER_USE_API_KEY and re-run to register the browser-use MCP server."
+if [ "$HAS_UVX" != true ]; then
+  SUMMARY="$SUMMARY
+- Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server."
+elif [ -z "${OPENAI_API_KEY:-}" ]; then
+  SUMMARY="$SUMMARY
+- Set OPENAI_API_KEY and re-run to register the browser-use MCP server (self-hosted, needs an OpenAI key specifically)."
+fi
 [ -n "${OBSIDIAN_VAULT_PATH:-}" ] || SUMMARY="$SUMMARY
 - Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."
 SUMMARY="$SUMMARY

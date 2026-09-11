@@ -27,12 +27,12 @@
       "description": "Read/search/write your Obsidian vault via librarian-mcp (github.com/ngmeyer/librarian-mcp) - reads the vault folder straight off disk, so Obsidian does not need to be running (and it doesn't matter what OS Obsidian itself runs on). Ships native binaries for Linux/macOS/Windows. Under WSL2, point this at the /mnt/c/... path if your vault lives on the Windows side rather than a Windows-style path - see ../docs/DECISIONS.md. Chosen over MarkusPfundstein/mcp-obsidian (see ../docs/DECISIONS.md) for that reason plus a richer tool set: trigram search, auto-wikilinks on write, and real graph analytics (Louvain communities, PageRank, shortest-path). Install: curl -fsSL https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh | sh"
     },
     "browser-use": {
-      "type": "http",
-      "url": "https://api.browser-use.com/mcp",
-      "headers": {
-        "x-browser-use-api-key": "YOUR_BROWSER_USE_KEY_HERE"
+      "command": "uvx",
+      "args": ["browser-use[cli]", "--mcp"],
+      "env": {
+        "OPENAI_API_KEY": "YOUR_OPENAI_API_KEY_HERE"
       },
-      "description": "Agentic browsing - give it a task, it decides the steps. Complements lightpanda-playwright below (agent layer vs. browser engine, not a substitute)."
+      "description": "Agentic browsing - give it a task, it decides the steps. Self-hosted: runs locally via `uvx browser-use[cli] --mcp`, no call to api.browser-use.com's paid cloud service. Needs an OpenAI key specifically (not a browser-use one) - the MCP server's LLM client is hardcoded to ChatOpenAI even though the underlying browser-use library supports other providers. Optional: BROWSER_USE_LLM_MODEL to override the default model. Requires `uv`/`uvx` on PATH (https://docs.astral.sh/uv/). Complements lightpanda-playwright below (agent layer vs. browser engine, not a substitute)."
     },
     "lightpanda-playwright": {
       "command": "npx",

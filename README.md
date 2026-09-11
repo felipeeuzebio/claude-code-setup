@@ -25,7 +25,7 @@ docs/DECISIONS.md Why things are configured the way they are
 | Context7 | live library docs lookup | no key required |
 | Firecrawl | web scraping/crawling | self-hosted via Docker Compose, see `firecrawl/` |
 | Obsidian (librarian-mcp) | read/search/write your vault + graph analytics | reads the vault off disk, no Obsidian process needed |
-| browser-use | agentic browsing (task → actions) | hosted API, needs `BROWSER_USE_API_KEY` |
+| browser-use | agentic browsing (task → actions) | self-hosted via `uvx`, needs `OPENAI_API_KEY` |
 | Lightpanda | fast local CDP browser engine | pairs with the Playwright MCP via `--cdp-endpoint` |
 | Codegraph | codebase knowledge graph (callers/callees/impact) | already installed locally, registered directly |
 

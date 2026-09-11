@@ -15,6 +15,7 @@ function Test-Cmd {
 Write-Host "Runtime:"
 Test-Cmd "node" "node"
 Test-Cmd "npx" "npx"
+Test-Cmd "uvx" "uvx"   # runs the self-hosted browser-use MCP: uvx browser-use[cli] --mcp
 Test-Cmd "docker" "docker"
 
 Write-Host ""

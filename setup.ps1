@@ -90,6 +90,14 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
     Warn "docker not available - Firecrawl self-host will be skipped"
 }
 
+$env:HAS_UVX = "false"
+if (Get-Command uvx -ErrorAction SilentlyContinue) {
+    $env:HAS_UVX = "true"
+    Ok "uvx $(uvx --version)"
+} else {
+    Warn "uvx not available - browser-use (self-hosted) will be skipped (install: https://docs.astral.sh/uv/)"
+}
+
 Step "Codegraph"
 if (-not (Get-Command codegraph -ErrorAction SilentlyContinue)) {
     Invoke-Spin "Installing codegraph..." "pwsh" @("-NoProfile", "-Command", "irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex")
@@ -169,7 +177,8 @@ $summaryLines = @(
     "   (command/args/env are in mcp/mcp-servers.json)."
 )
 if (-not ($env:GITHUB_TOKEN -or $env:GITHUB_PERSONAL_ACCESS_TOKEN)) { $summaryLines += "- Set GITHUB_TOKEN and re-run to register the GitHub MCP server." }
-if (-not $env:BROWSER_USE_API_KEY) { $summaryLines += "- Set BROWSER_USE_API_KEY and re-run to register the browser-use MCP server." }
+if ($env:HAS_UVX -ne "true") { $summaryLines += "- Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server." }
+elseif (-not $env:OPENAI_API_KEY) { $summaryLines += "- Set OPENAI_API_KEY and re-run to register the browser-use MCP server (self-hosted, needs an OpenAI key specifically)." }
 if (-not $env:OBSIDIAN_VAULT_PATH) { $summaryLines += "- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server." }
 $summaryLines += "Run scripts\verify-env.ps1 anytime to recheck what's installed."
 $summary = $summaryLines -join "`n"
