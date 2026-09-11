@@ -6,11 +6,14 @@ set of MCP servers, and a reusable language-agnostic `CLAUDE.md` starter.
 ## Layout
 
 ```
+setup.sh          One-shot setup for Linux/macOS/WSL2
+setup.ps1         One-shot setup for native Windows (Lightpanda needs WSL2 though)
+.env.example      Optional secrets/flags setup.sh and setup.ps1 read
 bifrost/          Bifrost MCP gateway install + config notes
 mcp/              Standalone MCP server definitions (works with or without Bifrost)
 firecrawl/        Self-hosted Firecrawl (Docker Compose) setup
 claude-md/        Reusable, language-agnostic CLAUDE.md starter template
-scripts/          Helper scripts (env verification, Firecrawl bring-up)
+scripts/          Installer/merge helpers used by setup.sh/setup.ps1
 docs/DECISIONS.md Why things are configured the way they are
 ```
 
@@ -30,12 +33,26 @@ Graphify was evaluated and intentionally left out — see `docs/DECISIONS.md`.
 
 ## Quickstart
 
-1. Read `bifrost/SETUP.md` and bring up the gateway.
-2. Fill in real secrets in `mcp/mcp-servers.json` (copy the relevant server blocks
-   into `~/.claude.json` or register them through the Bifrost UI).
-3. If you want self-hosted Firecrawl, run `scripts/setup-firecrawl.sh`.
-4. Copy `claude-md/GENERIC_TEMPLATE.md` into any project as `CLAUDE.md` and fill
-   in the blanks.
+```bash
+cp .env.example .env   # fill in what you have; unset vars just get skipped
+./setup.sh             # Linux/macOS/WSL2
+# or, on native Windows:
+./setup.ps1
+```
+
+This installs Codegraph, librarian-mcp, and (Linux/macOS only) Lightpanda,
+registers whichever MCP servers have their required secret/path set into
+`~/.claude.json` (backing it up first), brings up self-hosted Firecrawl if
+Docker is available, and starts Bifrost. It's idempotent - re-run anytime,
+e.g. after adding a secret to `.env`.
+
+It prints exactly what's left afterward: generating a Bifrost virtual key
+(an interactive UI step) and adding any servers you'd rather gateway
+through Bifrost instead of running direct. See `bifrost/SETUP.md` for that
+part in detail.
+
+Separately, copy `claude-md/GENERIC_TEMPLATE.md` into any project as
+`CLAUDE.md` and fill in the blanks.
 
 ## Credit
 

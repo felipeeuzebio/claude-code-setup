@@ -99,6 +99,20 @@ and `claude-obsidian` from the same list - all take a more opinionated
 "second brain" / Zettelkasten angle rather than a plain MCP server, which
 is more setup than this pass needed.
 
+## setup.sh/setup.ps1: skip rather than write broken entries
+
+Both scripts (and the `scripts/merge-mcp-config.js` they share) only add
+an MCP server to `~/.claude.json` once its required secret/path is
+present - a `github` entry with a placeholder token would fail on first
+use, and a silently-broken MCP server is worse than one that's just not
+there yet. Missing pieces are listed at the end of the run instead, so
+re-running after adding one line to `.env` is the whole fix.
+
+Lightpanda is Linux/macOS-only (no native Windows build as of this
+writing), so `setup.ps1` skips it outright rather than half-installing;
+the full stack including Lightpanda needs `setup.sh` under WSL2 on
+Windows machines.
+
 ## Repo: private
 
 The repo stores MCP server topology and setup scripts referencing personal
