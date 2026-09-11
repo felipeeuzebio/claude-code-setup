@@ -18,10 +18,35 @@ if [ -f .env ]; then
   set +a
 fi
 
-step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
-ok()   { printf '  ok   %s\n' "$1"; }
-skip() { printf '  skip %s\n' "$1"; }
-warn() { printf '  warn %s\n' "$1" >&2; }
+# gum is cosmetic only - if it can't be found or downloaded, everything
+# below falls back to plain output instead of failing the whole setup.
+printf 'Checking for gum (prettier output)...\n'
+GUM=""
+GUM_TMP_DIR=""
+# shellcheck disable=SC1091
+source "$REPO_ROOT/scripts/ensure-gum.sh"
+if [ -n "$GUM_TMP_DIR" ]; then
+  trap 'rm -rf "$GUM_TMP_DIR"' EXIT
+  printf 'Downloaded a temporary gum for this run (not installed system-wide).\n'
+elif [ -n "$GUM" ]; then
+  printf 'Using your existing gum install.\n'
+else
+  printf 'gum unavailable (offline, or unsupported OS/arch) - continuing with plain output.\n'
+fi
+
+step() {
+  if [ -n "$GUM" ]; then "$GUM" style --bold --foreground 212 --margin "1 0 0 0" "==> $1"
+  else printf '\n\033[1m==> %s\033[0m\n' "$1"; fi
+}
+ok()   { if [ -n "$GUM" ]; then "$GUM" style --foreground 2 "  ✓ $1";   else printf '  ok   %s\n' "$1"; fi; }
+skip() { if [ -n "$GUM" ]; then "$GUM" style --foreground 8 "  - $1";   else printf '  skip %s\n' "$1"; fi; }
+warn() { if [ -n "$GUM" ]; then "$GUM" style --foreground 3 "  ! $1" >&2; else printf '  warn %s\n' "$1" >&2; fi; }
+# Runs "$@" with a spinner; output only surfaces if the command fails.
+spin() {
+  local title="$1"; shift
+  if [ -n "$GUM" ]; then "$GUM" spin --title "$title" --show-error -- "$@"
+  else echo "  ... $title"; "$@"; fi
+}
 
 step "Checking required tools"
 command -v node >/dev/null || { echo "node is required - install it first (https://nodejs.org)"; exit 1; }
@@ -43,7 +68,7 @@ CAN_USE_LIGHTPANDA=false
 
 step "Codegraph"
 if ! command -v codegraph >/dev/null; then
-  curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh
+  spin "Installing codegraph..." bash -c "curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh"
   export PATH="$HOME/.local/bin:$PATH"
 fi
 if command -v codegraph >/dev/null; then
@@ -55,7 +80,7 @@ fi
 
 step "librarian-mcp (Obsidian)"
 if ! command -v librarian-mcp >/dev/null; then
-  curl -fsSL "https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh" | sh
+  spin "Installing librarian-mcp..." bash -c "curl -fsSL https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh | sh"
   export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 fi
 if command -v librarian-mcp >/dev/null; then
@@ -69,7 +94,7 @@ step "Lightpanda (fast local browser engine)"
 export HAS_LIGHTPANDA=false
 if [ "$CAN_USE_LIGHTPANDA" = true ] && [ "${SKIP_LIGHTPANDA:-}" != "1" ]; then
   if ! command -v lightpanda >/dev/null; then
-    curl -fsSL https://pkg.lightpanda.io/install.sh | bash
+    spin "Installing lightpanda..." bash -c "curl -fsSL https://pkg.lightpanda.io/install.sh | bash"
     export PATH="$HOME/.local/bin:$PATH"
   fi
   if command -v lightpanda >/dev/null; then
@@ -84,24 +109,28 @@ fi
 
 step "CLAUDE.md for this repo"
 PROMPT_FILE="$REPO_ROOT/claude-md/init-prompt.md"
+show_prompt() {
+  echo "  $1"
+  if [ -n "$GUM" ]; then "$GUM" format <"$PROMPT_FILE"
+  else echo "  ----------------------------------------------------------------"; cat "$PROMPT_FILE"; echo "  ----------------------------------------------------------------"; fi
+}
 if [ -f "$REPO_ROOT/CLAUDE.md" ]; then
   skip "CLAUDE.md already exists - not touching it"
 elif [ ! -t 0 ]; then
-  echo "  Not an interactive terminal - here's the prompt, paste it into any Claude Code session when you're ready:"
-  echo "  ----------------------------------------------------------------"
-  cat "$PROMPT_FILE"
-  echo "  ----------------------------------------------------------------"
+  show_prompt "Not an interactive terminal - here's the prompt, paste it into any Claude Code session when you're ready:"
 else
-  read -r -p "  Initialize CLAUDE.md for this repo now with Claude Code? [y/N] " REPLY
-  if [[ "$REPLY" =~ ^[Yy]$ ]] && command -v claude >/dev/null; then
+  if [ -n "$GUM" ]; then
+    "$GUM" confirm "Initialize CLAUDE.md for this repo now with Claude Code?"; CONFIRMED=$?
+  else
+    read -r -p "  Initialize CLAUDE.md for this repo now with Claude Code? [y/N] " REPLY
+    [[ "$REPLY" =~ ^[Yy]$ ]]; CONFIRMED=$?
+  fi
+  if [ "$CONFIRMED" -eq 0 ] && command -v claude >/dev/null; then
     claude -p "$(cat "$PROMPT_FILE")"
     ok "CLAUDE.md generated - review it"
   else
-    [[ "$REPLY" =~ ^[Yy]$ ]] && warn "claude CLI not found on PATH - here's the prompt instead"
-    echo "  Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
-    echo "  ----------------------------------------------------------------"
-    cat "$PROMPT_FILE"
-    echo "  ----------------------------------------------------------------"
+    [ "$CONFIRMED" -eq 0 ] && warn "claude CLI not found on PATH - here's the prompt instead"
+    show_prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
   fi
 fi
 
@@ -110,7 +139,7 @@ python3 "$REPO_ROOT/scripts/merge-mcp-config.py"
 
 step "Firecrawl (self-hosted web scraping)"
 if [ "$HAS_DOCKER" = true ] && [ "${SKIP_FIRECRAWL:-}" != "1" ]; then
-  bash "$REPO_ROOT/scripts/setup-firecrawl.sh" || warn "Firecrawl bring-up failed - see output above"
+  spin "Bringing up self-hosted Firecrawl..." bash "$REPO_ROOT/scripts/setup-firecrawl.sh" || warn "Firecrawl bring-up failed - see output above"
 else
   skip "docker unavailable or SKIP_FIRECRAWL=1"
 fi
@@ -129,11 +158,18 @@ else
 fi
 
 step "Summary - what's left for you"
-echo "  1. Open http://localhost:8080, finish Bifrost onboarding, generate a virtual key."
-echo "     claude mcp add --transport http bifrost http://localhost:8080/mcp --header \"Authorization: Bearer <key>\" --scope user"
-echo "  2. In the Bifrost UI, add downstream servers you'd rather gateway than run direct"
-echo "     (command/args/env are in mcp/mcp-servers.json)."
-[ -n "${GITHUB_TOKEN:-}${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ] || echo "  - Set GITHUB_TOKEN and re-run to register the GitHub MCP server."
-[ -n "${BROWSER_USE_API_KEY:-}" ] || echo "  - Set BROWSER_USE_API_KEY and re-run to register the browser-use MCP server."
-[ -n "${OBSIDIAN_VAULT_PATH:-}" ] || echo "  - Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."
-echo "  Run scripts/verify-env.sh anytime to recheck what's installed."
+SUMMARY="1. Open http://localhost:8080, finish Bifrost onboarding, generate a virtual key.
+   claude mcp add --transport http bifrost http://localhost:8080/mcp --header \"Authorization: Bearer <key>\" --scope user
+2. In the Bifrost UI, add downstream servers you'd rather gateway than run direct
+   (command/args/env are in mcp/mcp-servers.json)."
+[ -n "${GITHUB_TOKEN:-}${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ] || SUMMARY="$SUMMARY
+- Set GITHUB_TOKEN and re-run to register the GitHub MCP server."
+[ -n "${BROWSER_USE_API_KEY:-}" ] || SUMMARY="$SUMMARY
+- Set BROWSER_USE_API_KEY and re-run to register the browser-use MCP server."
+[ -n "${OBSIDIAN_VAULT_PATH:-}" ] || SUMMARY="$SUMMARY
+- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."
+SUMMARY="$SUMMARY
+Run scripts/verify-env.sh anytime to recheck what's installed."
+
+if [ -n "$GUM" ]; then "$GUM" style --border rounded --padding "1 2" --margin "0 0 1 0" "$SUMMARY"
+else echo "$SUMMARY"; fi

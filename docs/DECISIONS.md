@@ -135,6 +135,37 @@ another project. That doesn't need a permanently-installed command:
 - Saying yes runs `claude -p "$(cat claude-md/init-prompt.md)"` right there,
   since setup.sh/setup.ps1 already `cd` to the repo root before this step.
 
+## gum styling: temp-download, never a system install
+
+setup.sh/setup.ps1 style their output with
+[gum](https://github.com/charmbracelet/gum) (styled headers, spinners on
+slow installs, `gum confirm` for the CLAUDE.md prompt, `gum format` to
+render `init-prompt.md` as markdown instead of a raw text dump). If gum is
+already on PATH, that's what gets used - untouched. If not, `scripts/
+ensure-gum.sh` (bash) / `scripts/ensure-gum.ps1` (PowerShell) download the
+matching release binary into a `mktemp -d` directory for that run only,
+and the caller removes it on exit (`trap ... EXIT` in bash, `finally` in
+PowerShell). Nothing is ever written to a system bin directory or added to
+PATH permanently - re-running setup with no gum installed downloads it
+again rather than remembering it, which is fine since gum itself is a
+single small binary.
+
+gum is treated as strictly cosmetic: every call is guarded by "if $GUM is
+set", and if the download fails (offline, or an OS/arch gum doesn't ship
+for) the scripts fall back to the plain `printf`/`Write-Host` output they
+had before gum was added, rather than aborting setup over a styling
+dependency.
+
+Verified `setup.ps1`'s gum integration without a Windows machine by:
+parsing all four `.ps1` files with PowerShell's own
+`[System.Management.Automation.Language.Parser]` (via a temporary Linux
+build of PowerShell, deleted after), dot-sourcing `ensure-gum.ps1` for
+real to confirm it downloads and extracts the actual Windows `gum.exe`
+release asset correctly, and running the full `setup.ps1` end-to-end
+against this machine's real node/docker/codegraph/librarian-mcp/git with a
+throwaway shell-script stand-in for `gum` on PATH (since a Windows PE
+binary can't execute on Linux) to exercise the control flow itself.
+
 ## Repo: private
 
 The repo stores MCP server topology and setup scripts referencing personal

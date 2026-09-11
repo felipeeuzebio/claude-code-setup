@@ -22,24 +22,53 @@ if (Test-Path $envFile) {
     }
 }
 
-function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
-function Ok($msg)   { Write-Host "  ok   $msg" }
-function Skip($msg) { Write-Host "  skip $msg" }
-function Warn($msg) { Write-Host "  warn $msg" -ForegroundColor Yellow }
+# gum is cosmetic only - if it can't be found or downloaded, everything
+# below falls back to plain output instead of failing the whole setup.
+Write-Host "Checking for gum (prettier output)..."
+. (Join-Path $RepoRoot "scripts\ensure-gum.ps1")
+if ($GumTmpDir) { Write-Host "Downloaded a temporary gum for this run (not installed system-wide)." }
+elseif ($Gum) { Write-Host "Using your existing gum install." }
+else { Write-Host "gum unavailable (offline, or unsupported OS/arch) - continuing with plain output." }
+
+function Step($msg) {
+    if ($Gum) { "==> $msg" | & $Gum style --bold --foreground 212 --margin "1 0 0 0" }
+    else { Write-Host "`n==> $msg" -ForegroundColor Cyan }
+}
+function Ok($msg)   { if ($Gum) { "  + $msg" | & $Gum style --foreground 2 } else { Write-Host "  ok   $msg" } }
+function Skip($msg) { if ($Gum) { "  - $msg" | & $Gum style --foreground 8 } else { Write-Host "  skip $msg" } }
+function Warn($msg) { if ($Gum) { "  ! $msg" | & $Gum style --foreground 3 } else { Write-Host "  warn $msg" -ForegroundColor Yellow } }
+# Runs $exe with $exeArgs, showing a spinner; output only surfaces on failure.
+function Invoke-Spin($title, $exe, [string[]]$exeArgs) {
+    if ($Gum) { & $Gum spin --title $title --show-error -- $exe @exeArgs }
+    else { Write-Host "  ... $title"; & $exe @exeArgs }
+}
+function Confirm-Gum($prompt) {
+    if ($Gum) { & $Gum confirm $prompt; return ($LASTEXITCODE -eq 0) }
+    else { return ((Read-Host "  $prompt [y/N]") -match '^[Yy]$') }
+}
+function Show-Prompt($lead, $promptFile) {
+    Write-Host "  $lead"
+    if ($Gum) { Get-Content $promptFile -Raw | & $Gum format }
+    else {
+        Write-Host "  ----------------------------------------------------------------"
+        Get-Content $promptFile | ForEach-Object { Write-Host "  $_" }
+        Write-Host "  ----------------------------------------------------------------"
+    }
+}
+
+try {
 
 Step "Checking required tools"
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Write-Error "node is required - install it first (https://nodejs.org)"
     exit 1
 }
-Ok "node $(node --version), npx $(npx --version)"
-
 $python = @("python3", "python") | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
 if (-not $python) {
     Write-Error "python3 is required for scripts\merge-mcp-config.py - install it first (https://python.org)"
     exit 1
 }
-Ok "$python $(& $python --version)"
+Ok "node $(node --version), npx $(npx --version), $python $(& $python --version)"
 
 $hasDocker = $false
 if (Get-Command docker -ErrorAction SilentlyContinue) {
@@ -51,7 +80,7 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
 
 Step "Codegraph"
 if (-not (Get-Command codegraph -ErrorAction SilentlyContinue)) {
-    irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex
+    Invoke-Spin "Installing codegraph..." "pwsh" @("-NoProfile", "-Command", "irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex")
 }
 if (Get-Command codegraph -ErrorAction SilentlyContinue) {
     codegraph install --target claude --location global -y
@@ -62,7 +91,7 @@ if (Get-Command codegraph -ErrorAction SilentlyContinue) {
 
 Step "librarian-mcp (Obsidian)"
 if (-not (Get-Command librarian-mcp -ErrorAction SilentlyContinue)) {
-    irm "https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.ps1" | iex
+    Invoke-Spin "Installing librarian-mcp..." "pwsh" @("-NoProfile", "-Command", "irm https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.ps1 | iex")
 }
 if (Get-Command librarian-mcp -ErrorAction SilentlyContinue) {
     Ok "librarian-mcp installed"
@@ -78,24 +107,18 @@ $env:HAS_LIGHTPANDA = "false"
 Step "CLAUDE.md for this repo"
 $promptFile = Join-Path $RepoRoot "claude-md\init-prompt.md"
 $claudeMdPath = Join-Path $RepoRoot "CLAUDE.md"
-function Show-Prompt($lead) {
-    Write-Host "  $lead"
-    Write-Host "  ----------------------------------------------------------------"
-    Get-Content $promptFile | ForEach-Object { Write-Host "  $_" }
-    Write-Host "  ----------------------------------------------------------------"
-}
 if (Test-Path $claudeMdPath) {
     Skip "CLAUDE.md already exists - not touching it"
 } elseif ([Console]::IsInputRedirected) {
-    Show-Prompt "Not an interactive terminal - here's the prompt, paste it into any Claude Code session when you're ready:"
+    Show-Prompt "Not an interactive terminal - here's the prompt, paste it into any Claude Code session when you're ready:" $promptFile
 } else {
-    $reply = Read-Host "  Initialize CLAUDE.md for this repo now with Claude Code? [y/N]"
-    if ($reply -match '^[Yy]$' -and (Get-Command claude -ErrorAction SilentlyContinue)) {
+    $confirmed = Confirm-Gum "Initialize CLAUDE.md for this repo now with Claude Code?"
+    if ($confirmed -and (Get-Command claude -ErrorAction SilentlyContinue)) {
         claude -p (Get-Content $promptFile -Raw)
         Ok "CLAUDE.md generated - review it"
     } else {
-        if ($reply -match '^[Yy]$') { Warn "claude CLI not found on PATH - here's the prompt instead" }
-        Show-Prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
+        if ($confirmed) { Warn "claude CLI not found on PATH - here's the prompt instead" }
+        Show-Prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:" $promptFile
     }
 }
 
@@ -104,7 +127,7 @@ Step "Registering MCP servers into ~/.claude.json"
 
 Step "Firecrawl (self-hosted web scraping)"
 if ($hasDocker -and $env:SKIP_FIRECRAWL -ne "1") {
-    & (Join-Path $RepoRoot "scripts\setup-firecrawl.ps1")
+    Invoke-Spin "Bringing up self-hosted Firecrawl..." "pwsh" @("-NoProfile", "-File", (Join-Path $RepoRoot "scripts\setup-firecrawl.ps1"))
 } else {
     Skip "docker unavailable or SKIP_FIRECRAWL=1"
 }
@@ -127,11 +150,21 @@ if ($env:SKIP_BIFROST -ne "1") {
 }
 
 Step "Summary - what's left for you"
-Write-Host "  1. Open http://localhost:8080, finish Bifrost onboarding, generate a virtual key."
-Write-Host "     claude mcp add --transport http bifrost http://localhost:8080/mcp --header `"Authorization: Bearer <key>`" --scope user"
-Write-Host "  2. In the Bifrost UI, add downstream servers you'd rather gateway than run direct"
-Write-Host "     (command/args/env are in mcp/mcp-servers.json)."
-if (-not ($env:GITHUB_TOKEN -or $env:GITHUB_PERSONAL_ACCESS_TOKEN)) { Write-Host "  - Set GITHUB_TOKEN and re-run to register the GitHub MCP server." }
-if (-not $env:BROWSER_USE_API_KEY) { Write-Host "  - Set BROWSER_USE_API_KEY and re-run to register the browser-use MCP server." }
-if (-not $env:OBSIDIAN_VAULT_PATH) { Write-Host "  - Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server." }
-Write-Host "  Run scripts\verify-env.ps1 anytime to recheck what's installed."
+$summaryLines = @(
+    "1. Open http://localhost:8080, finish Bifrost onboarding, generate a virtual key.",
+    "   claude mcp add --transport http bifrost http://localhost:8080/mcp --header `"Authorization: Bearer <key>`" --scope user",
+    "2. In the Bifrost UI, add downstream servers you'd rather gateway than run direct",
+    "   (command/args/env are in mcp/mcp-servers.json)."
+)
+if (-not ($env:GITHUB_TOKEN -or $env:GITHUB_PERSONAL_ACCESS_TOKEN)) { $summaryLines += "- Set GITHUB_TOKEN and re-run to register the GitHub MCP server." }
+if (-not $env:BROWSER_USE_API_KEY) { $summaryLines += "- Set BROWSER_USE_API_KEY and re-run to register the browser-use MCP server." }
+if (-not $env:OBSIDIAN_VAULT_PATH) { $summaryLines += "- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server." }
+$summaryLines += "Run scripts\verify-env.ps1 anytime to recheck what's installed."
+$summary = $summaryLines -join "`n"
+
+if ($Gum) { $summary | & $Gum style --border rounded --padding "1 2" --margin "0 0 1 0" }
+else { Write-Host $summary }
+
+} finally {
+    if ($GumTmpDir) { Remove-Item -Recurse -Force $GumTmpDir -ErrorAction SilentlyContinue }
+}

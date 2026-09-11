@@ -18,6 +18,10 @@ Test-Cmd "npx" "npx"
 Test-Cmd "docker" "docker"
 
 Write-Host ""
+Write-Host "Optional (setup.ps1 downloads a temporary copy if missing):"
+Test-Cmd "gum" "gum"
+
+Write-Host ""
 Write-Host "Search / graph:"
 Test-Cmd "codegraph" "codegraph"
 

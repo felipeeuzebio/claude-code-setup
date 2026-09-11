@@ -46,6 +46,12 @@ registers whichever MCP servers have their required secret/path set into
 Docker is available, and starts Bifrost. It's idempotent - re-run anytime,
 e.g. after adding a secret to `.env`.
 
+Output is styled with [gum](https://github.com/charmbracelet/gum) if it's
+on your PATH; if not, the script downloads a copy into a throwaway temp
+directory for just this run and deletes it on exit - nothing gets
+installed system-wide, and everything still works in plain text if gum
+can't be reached at all (offline, unsupported OS/arch).
+
 It prints exactly what's left afterward: generating a Bifrost virtual key
 (an interactive UI step) and adding any servers you'd rather gateway
 through Bifrost instead of running direct. See `bifrost/SETUP.md` for that

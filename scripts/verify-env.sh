@@ -20,6 +20,10 @@ check uvx uvx
 check docker docker
 
 echo
+echo "Optional (setup.sh downloads a temporary copy if missing):"
+check gum gum
+
+echo
 echo "Search / graph:"
 check ripgrep rg
 check codegraph codegraph
