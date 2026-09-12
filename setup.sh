@@ -111,7 +111,11 @@ if ! command -v librarian-mcp >/dev/null; then
 fi
 if command -v librarian-mcp >/dev/null; then
   ok "librarian-mcp installed"
-  [ -n "${OBSIDIAN_VAULT_PATH:-}" ] || warn "OBSIDIAN_VAULT_PATH not set - obsidian MCP entry will be skipped"
+  if [ -z "${OBSIDIAN_VAULT_PATH:-}" ]; then
+    warn "OBSIDIAN_VAULT_PATH not set - obsidian MCP entry will be skipped"
+  elif [ ! -d "$OBSIDIAN_VAULT_PATH" ]; then
+    warn "OBSIDIAN_VAULT_PATH is not an existing directory: $OBSIDIAN_VAULT_PATH - obsidian MCP entry will be skipped (under WSL2, a Windows-side vault needs /mnt/c/... not C:\\...)"
+  fi
 else
   warn "librarian-mcp install failed - obsidian MCP entry will be skipped"
 fi
@@ -198,8 +202,13 @@ else
   SUMMARY="$SUMMARY
 - Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server."
 fi
-[ -n "${OBSIDIAN_VAULT_PATH:-}" ] || SUMMARY="$SUMMARY
+if [ -z "${OBSIDIAN_VAULT_PATH:-}" ]; then
+  SUMMARY="$SUMMARY
 - Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."
+elif [ ! -d "$OBSIDIAN_VAULT_PATH" ]; then
+  SUMMARY="$SUMMARY
+- OBSIDIAN_VAULT_PATH ($OBSIDIAN_VAULT_PATH) is not an existing directory - fix it and re-run to register the Obsidian (librarian-mcp) server."
+fi
 SUMMARY="$SUMMARY
 Run scripts/verify-env.sh anytime to recheck what's installed."
 

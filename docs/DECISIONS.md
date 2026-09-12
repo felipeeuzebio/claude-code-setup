@@ -205,6 +205,22 @@ use, and a silently-broken MCP server is worse than one that's just not
 there yet. Missing pieces are listed at the end of the run instead, so
 re-running after adding one line to `.env` is the whole fix.
 
+**Addendum: "present" for `OBSIDIAN_VAULT_PATH` now means a real
+directory, not just a non-empty string.** The original check was
+`bool(vault_path)` - a typo'd path, or a Windows-style `C:\...` path
+handed to the WSL2/Linux `librarian-mcp` binary (which needs
+`/mnt/c/...` instead - see the Obsidian section above), would pass that
+check, get written into `~/.claude.json`, and only fail later at Claude
+Code runtime as an opaque MCP connection error. `build_plan()` in
+`scripts/merge-mcp-config.py` now checks `Path(vault_path).is_dir()`,
+and `setup.sh`/`setup.ps1` run the same existence check inline so the
+warning ("OBSIDIAN_VAULT_PATH is not an existing directory: ...") shows
+up during the run itself, not just in the merge step's skip summary.
+`build_plan()`'s return type also grew a per-server skip reason string
+(previously the merge script's final printout just said "missing
+secret/dependency" for every skip, which didn't distinguish "not set"
+from "set but invalid").
+
 Lightpanda is Linux/macOS-only (no native Windows build as of this
 writing), so `setup.ps1` skips it outright rather than half-installing;
 the full stack including Lightpanda needs `setup.sh` under WSL2 on

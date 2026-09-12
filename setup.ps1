@@ -109,7 +109,7 @@ if (Get-Command codegraph -ErrorAction SilentlyContinue) {
     Warn "codegraph install failed - skipping registration"
 }
 
-Step "browser-use (self-hosted, Claude-driven browser control)"
+Step "Set up browser-use (self-hosted, Claude-driven browser control)"
 if ($env:HAS_UVX -eq "true") {
     Ok "will register (see summary below for the one-time Chromium install)"
 } else {
@@ -122,7 +122,11 @@ if (-not (Get-Command librarian-mcp -ErrorAction SilentlyContinue)) {
 }
 if (Get-Command librarian-mcp -ErrorAction SilentlyContinue) {
     Ok "librarian-mcp installed"
-    if (-not $env:OBSIDIAN_VAULT_PATH) { Warn "OBSIDIAN_VAULT_PATH not set - obsidian MCP entry will be skipped" }
+    if (-not $env:OBSIDIAN_VAULT_PATH) {
+        Warn "OBSIDIAN_VAULT_PATH not set - obsidian MCP entry will be skipped"
+    } elseif (-not (Test-Path -LiteralPath $env:OBSIDIAN_VAULT_PATH -PathType Container)) {
+        Warn "OBSIDIAN_VAULT_PATH is not an existing directory: $($env:OBSIDIAN_VAULT_PATH) - obsidian MCP entry will be skipped"
+    }
 } else {
     Warn "librarian-mcp install failed - obsidian MCP entry will be skipped"
 }
@@ -189,7 +193,11 @@ if ($env:HAS_UVX -eq "true") {
 } else {
     $summaryLines += "- Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server."
 }
-if (-not $env:OBSIDIAN_VAULT_PATH) { $summaryLines += "- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server." }
+if (-not $env:OBSIDIAN_VAULT_PATH) {
+    $summaryLines += "- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."
+} elseif (-not (Test-Path -LiteralPath $env:OBSIDIAN_VAULT_PATH -PathType Container)) {
+    $summaryLines += "- OBSIDIAN_VAULT_PATH ($($env:OBSIDIAN_VAULT_PATH)) is not an existing directory - fix it and re-run to register the Obsidian (librarian-mcp) server."
+}
 $summaryLines += "Run scripts\verify-env.ps1 anytime to recheck what's installed."
 $summary = $summaryLines -join "`n"
 
