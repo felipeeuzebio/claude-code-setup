@@ -9,11 +9,11 @@ set of MCP servers, and a reusable language-agnostic `CLAUDE.md` starter.
 setup.sh              One-shot setup for Linux (native or WSL2) and macOS
 setup.ps1             One-shot setup for native Windows (Lightpanda needs WSL2 though)
 .env.example          Secrets/flags setup.sh and setup.ps1 read, plus self-hosted Firecrawl's own env
+AGENTS.md              Why things are configured the way they are - read before changing MCP server choices or script behavior
 CLAUDE_TEMPLATE.md     The CLAUDE.md-generation prompt (starter structure embedded) setup.sh/setup.ps1 offer to run
 mcp/                   Standalone MCP server definitions (works with or without Bifrost)
 scripts/               Installer/merge helpers used by setup.sh/setup.ps1, incl. self-hosted Firecrawl bring-up
 githooks/              commit-msg hook enforcing Conventional Commits (wired up by setup.sh/setup.ps1)
-docs/                  Why things are configured the way they are (DECISIONS.md), plus BIFROST.md
 ```
 
 ## MCP servers included
@@ -28,7 +28,7 @@ docs/                  Why things are configured the way they are (DECISIONS.md)
 | Lightpanda | fast local browser engine, text/DOM-oriented tools | its own native MCP server (`lightpanda mcp`, stdio), no CDP wrapper |
 | Codegraph | codebase knowledge graph (callers/callees/impact) | already installed locally, registered directly |
 
-Graphify was evaluated and intentionally left out — see `docs/DECISIONS.md`.
+Graphify was evaluated and intentionally left out — see `AGENTS.md`.
 
 ## Quickstart
 
@@ -59,8 +59,9 @@ than just skipping that one step.
 
 It prints exactly what's left afterward: generating a Bifrost virtual key
 (an interactive UI step) and adding any servers you'd rather gateway
-through Bifrost instead of running direct. See `docs/BIFROST.md` for that
-part in detail.
+through Bifrost instead of running direct via its web UI at
+http://localhost:8080 (Settings → MCP → Add Server) - see
+https://docs.getbifrost.ai for the full config schema.
 
 Separately, if this repo has no `CLAUDE.md` yet, `setup.sh`/`setup.ps1` ask
 whether to generate one now via `claude -p` using `CLAUDE_TEMPLATE.md`

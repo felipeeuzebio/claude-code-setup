@@ -18,8 +18,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 - `CLAUDE_TEMPLATE.md` (root) - reusable `CLAUDE.md`-generation prompt, starter structure embedded, that setup.sh offers to run via `claude -p`
 - `scripts/` - installer/merge helpers used by `setup.sh`/`setup.ps1`: `ensure-gum.{sh,ps1}`, `merge-mcp-config.py`, `setup-firecrawl.{sh,ps1}`, `verify-env.{sh,ps1}`, `test-mcp.py`
 - `githooks/commit-msg` - Conventional Commits enforcement hook, wired via `git config core.hooksPath githooks`
-- `docs/DECISIONS.md` - why things are configured the way they are; read before changing MCP server choices or script behavior
-- `docs/BIFROST.md` - Bifrost MCP gateway install and config notes
+- `AGENTS.md` (root) - why things are configured the way they are; read before changing MCP server choices or script behavior
 
 ## Commands
 
@@ -47,7 +46,7 @@ After changing a script in this repo:
 - MCP servers are only written into `~/.claude.json` once their required secret/path is actually present and valid (e.g. `OBSIDIAN_VAULT_PATH` must be a real directory) — a placeholder or invalid entry is worse than a server that's just not registered yet; missing pieces are listed at the end of the run instead.
 - gum (styled terminal output) is strictly cosmetic and never a hard dependency — if missing, it's downloaded to a temp dir for that run only and every gum call has a plain-`printf`/`Write-Host` fallback.
 - Setup scripts are idempotent — safe to re-run after adding one more secret to `.env`.
-- For the reasoning behind specific tool/server choices (Bifrost vs. alternatives, Codegraph vs. Graphify, librarian-mcp vs. mcp-obsidian, browser-use's `--cli-mcp` mode, etc.), see `docs/DECISIONS.md` before changing them — several were arrived at after ruling out non-obvious failure modes.
+- For the reasoning behind specific tool/server choices (Bifrost vs. alternatives, Codegraph vs. Graphify, librarian-mcp vs. mcp-obsidian, browser-use's `--cli-mcp` mode, etc.), see `AGENTS.md` before changing them — several were arrived at after ruling out non-obvious failure modes.
 
 ## Don't
 

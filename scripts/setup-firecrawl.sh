@@ -2,7 +2,7 @@
 # Bring up a self-hosted Firecrawl instance via Docker Compose.
 # Requires Docker: native Docker Engine on Linux, Docker Desktop on macOS,
 # or Docker Desktop with WSL integration enabled if running under WSL2 -
-# see ../docs/DECISIONS.md.
+# see ../AGENTS.md.
 set -euo pipefail
 
 CHECKOUT_DIR="${FIRECRAWL_CHECKOUT_DIR:-$HOME/services/firecrawl}"

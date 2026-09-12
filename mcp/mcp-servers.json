@@ -24,17 +24,17 @@
     "obsidian": {
       "command": "librarian-mcp",
       "args": ["/path/to/your/vault"],
-      "description": "Read/search/write your Obsidian vault via librarian-mcp (github.com/ngmeyer/librarian-mcp) - reads the vault folder straight off disk, so Obsidian does not need to be running (and it doesn't matter what OS Obsidian itself runs on). Ships native binaries for Linux/macOS/Windows. Under WSL2, point this at the /mnt/c/... path if your vault lives on the Windows side rather than a Windows-style path - see ../docs/DECISIONS.md. Chosen over MarkusPfundstein/mcp-obsidian (see ../docs/DECISIONS.md) for that reason plus a richer tool set: trigram search, auto-wikilinks on write, and real graph analytics (Louvain communities, PageRank, shortest-path). Install: curl -fsSL https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh | sh"
+      "description": "Read/search/write your Obsidian vault via librarian-mcp (github.com/ngmeyer/librarian-mcp) - reads the vault folder straight off disk, so Obsidian does not need to be running (and it doesn't matter what OS Obsidian itself runs on). Ships native binaries for Linux/macOS/Windows. Under WSL2, point this at the /mnt/c/... path if your vault lives on the Windows side rather than a Windows-style path - see ../AGENTS.md. Chosen over MarkusPfundstein/mcp-obsidian (see ../AGENTS.md) for that reason plus a richer tool set: trigram search, auto-wikilinks on write, and real graph analytics (Louvain communities, PageRank, shortest-path). Install: curl -fsSL https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh | sh"
     },
     "browser-use": {
       "command": "uvx",
       "args": ["--python", "3.12", "browser-use[cli]", "--cli-mcp"],
-      "description": "Low-level browser control (browser_exec/browser_screenshot) backed by browser-use's Chromium-based \"browser harness\" - Claude Code itself decides the steps by writing the automation code, rather than browser-use running its own internal LLM agent. No API key of any kind needed, unlike browser-use's other MCP mode (--mcp, an autonomous agent hardcoded to OpenAI - see ../docs/DECISIONS.md). --python 3.12 is pinned because browser-use needs >=3.11 and uvx isn't guaranteed to pick a satisfying interpreter on its own (see ../docs/DECISIONS.md). Requires `uv`/`uvx` on PATH (https://docs.astral.sh/uv/) and Chromium installed once via `uvx browser-use[cli] install` (may prompt for sudo on Linux - see ../docs/DECISIONS.md, not something setup.sh/setup.ps1 run for you). Complements lightpanda below (this drives a real Chromium via exec'd Python; that one is a lighter, text-oriented engine for deterministic scraping)."
+      "description": "Low-level browser control (browser_exec/browser_screenshot) backed by browser-use's Chromium-based \"browser harness\" - Claude Code itself decides the steps by writing the automation code, rather than browser-use running its own internal LLM agent. No API key of any kind needed, unlike browser-use's other MCP mode (--mcp, an autonomous agent hardcoded to OpenAI - see ../AGENTS.md). --python 3.12 is pinned because browser-use needs >=3.11 and uvx isn't guaranteed to pick a satisfying interpreter on its own (see ../AGENTS.md). Requires `uv`/`uvx` on PATH (https://docs.astral.sh/uv/) and Chromium installed once via `uvx browser-use[cli] install` (may prompt for sudo on Linux - see ../AGENTS.md, not something setup.sh/setup.ps1 run for you). Complements lightpanda below (this drives a real Chromium via exec'd Python; that one is a lighter, text-oriented engine for deterministic scraping)."
     },
     "lightpanda": {
       "command": "lightpanda",
       "args": ["mcp"],
-      "description": "Lightpanda's own native MCP server (stdio) - fast/cheap deterministic scraping without a full Chrome. Superseded the @playwright/mcp + --cdp-endpoint approach: that path is broken (Lightpanda emits no Page lifecycle events, so every Playwright navigation times out - see ../docs/DECISIONS.md), while this native surface (tree/markdown/html/findElement/evaluate/extract/...) drives Lightpanda's engine directly and works, verified by scripts/test-mcp.py. No separate `lightpanda serve` process or port needed - the stdio subprocess owns its own browser instance for the session. Install: curl -fsSL https://pkg.lightpanda.io/install.sh | bash"
+      "description": "Lightpanda's own native MCP server (stdio) - fast/cheap deterministic scraping without a full Chrome. Superseded the @playwright/mcp + --cdp-endpoint approach: that path is broken (Lightpanda emits no Page lifecycle events, so every Playwright navigation times out - see ../AGENTS.md), while this native surface (tree/markdown/html/findElement/evaluate/extract/...) drives Lightpanda's engine directly and works, verified by scripts/test-mcp.py. No separate `lightpanda serve` process or port needed - the stdio subprocess owns its own browser instance for the session. Install: curl -fsSL https://pkg.lightpanda.io/install.sh | bash"
     },
     "codegraph": {
       "type": "stdio",
@@ -44,8 +44,8 @@
     }
   },
   "_comments": {
-    "usage": "Copy the servers you need into ~/.claude.json's mcpServers section, or register the same command/args/env/url through the Bifrost UI (see ../docs/BIFROST.md).",
+    "usage": "Copy the servers you need into ~/.claude.json's mcpServers section, or register the same command/args/env/url through the Bifrost UI (Settings -> MCP -> Add Server; see https://docs.getbifrost.ai).",
     "env_vars": "Replace YOUR_*_HERE placeholders with real values. Never commit real secrets to this repo.",
-    "graphify": "Evaluated and intentionally omitted - overlaps Codegraph almost entirely and Codegraph was already installed. See ../docs/DECISIONS.md."
+    "graphify": "Evaluated and intentionally omitted - overlaps Codegraph almost entirely and Codegraph was already installed. See ../AGENTS.md."
   }
 }

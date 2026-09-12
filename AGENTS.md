@@ -12,9 +12,9 @@ open-source option combines both roles.
 
 Caveat: Bifrost's own docs don't fully spell out the config-file schema for
 registering downstream MCP servers — that's done through its web UI
-(`http://localhost:8080`) or management API, not by hand-editing JSON we
-control. Treat `docs/BIFROST.md` as the source of truth and re-check
-`docs.getbifrost.ai` if the UI has moved things around.
+(`http://localhost:8080`, Settings → MCP → Add Server) or management API,
+not by hand-editing JSON we control. Re-check `docs.getbifrost.ai` if the
+UI has moved things around.
 
 ## Firecrawl: self-hosted via Docker, not cloud
 

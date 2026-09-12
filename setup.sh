@@ -148,7 +148,7 @@ if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
   HAS_DOCKER=true
   ok_ver docker "$(docker --version | cut -d, -f1)"
 else
-  warn "docker not available - Firecrawl self-host will be skipped (see docs/DECISIONS.md)"
+  warn "docker not available - Firecrawl self-host will be skipped (see AGENTS.md)"
 fi
 
 export HAS_UVX=false
