@@ -40,7 +40,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_PATH = REPO_ROOT / "mcp" / "mcp-servers.json"
 CLAUDE_CONFIG = Path.home() / ".claude.json"
 
-LIGHTPANDA_PORT = 9222
 CHROME_PORT = 9223
 
 # Built-ins that could answer these prompts without the MCP server under
@@ -191,22 +190,18 @@ CASES = [
         env={"BU_CDP_URL": f"http://127.0.0.1:{CHROME_PORT}"},
     ),
     Case(
-        name="lightpanda-playwright",
-        server="lightpanda-playwright",
-        tools=(
-            "mcp__lightpanda-playwright__browser_navigate",
-            "mcp__lightpanda-playwright__browser_evaluate",
-        ),
-        must_call=("mcp__lightpanda-playwright__browser_navigate",),
+        name="lightpanda",
+        server="lightpanda",
+        tools=("mcp__lightpanda__evaluate",),
+        must_call=("mcp__lightpanda__evaluate",),
         prompt=(
-            "Use browser_navigate to open https://quotes.toscrape.com/js/ , then "
-            "use browser_evaluate with the function "
-            "\"() => document.querySelectorAll('.quote').length\". Reply with "
-            "exactly one line, 'COUNT=<the number>', and nothing else."
+            "Use the evaluate tool with url 'https://quotes.toscrape.com/js/' and "
+            "script \"document.querySelectorAll('.quote').length\" to count the "
+            "quotes on that JavaScript-rendered page. Reply with exactly one "
+            "line, 'COUNT=<the number>', and nothing else."
         ),
         expect=r"COUNT=\s*10\b",
-        why="Playwright drives the Lightpanda engine over CDP",
-        needs="lightpanda",
+        why="Lightpanda's native MCP server drives its own engine directly, not via CDP",
         resource="browser",
     ),
 ]
@@ -237,19 +232,6 @@ def find_chromium() -> str | None:
     return None
 
 
-def start_lightpanda() -> tuple[subprocess.Popen | None, str]:
-    if cdp_alive(LIGHTPANDA_PORT):
-        return None, ""
-    exe = shutil.which("lightpanda")
-    if not exe:
-        return None, "lightpanda is not installed"
-    proc = subprocess.Popen(
-        [exe, "serve", "--port", str(LIGHTPANDA_PORT)],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    return (proc, "") if wait_for(LIGHTPANDA_PORT) else (proc, "lightpanda did not start")
-
-
 def start_chrome() -> tuple[subprocess.Popen | None, str]:
     if cdp_alive(CHROME_PORT):
         return None, ""
@@ -275,7 +257,6 @@ def wait_for(port: int, timeout: float = 25.0) -> bool:
 
 
 PREREQS = {
-    "lightpanda": start_lightpanda,
     "chrome": start_chrome,
     "codegraph-index": lambda: (
         (None, "") if (REPO_ROOT / ".codegraph").is_dir()

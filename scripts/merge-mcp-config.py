@@ -74,7 +74,7 @@ def build_plan(env: dict) -> dict[str, tuple[bool, Fill, str]]:
             vault_reason,
         ),
         "browser-use": (has_uvx, lambda s: s, "uvx not on PATH"),
-        "lightpanda-playwright": (
+        "lightpanda": (
             has_lightpanda,
             lambda s: s,
             "lightpanda not installed or not supported on this OS",
