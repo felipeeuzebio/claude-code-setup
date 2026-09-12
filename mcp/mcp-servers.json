@@ -33,8 +33,8 @@
     },
     "lightpanda-playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp", "--cdp-endpoint", "ws://localhost:9222"],
-      "description": "Playwright MCP driven by a local Lightpanda browser instead of Chrome, for fast/cheap deterministic scraping. Start Lightpanda first: `lightpanda serve --port 9222`. Install: curl -fsSL https://pkg.lightpanda.io/install.sh | bash"
+      "args": ["-y", "@playwright/mcp", "--cdp-endpoint", "ws://127.0.0.1:9222"],
+      "description": "Playwright MCP driven by a local Lightpanda browser instead of Chrome, for fast/cheap deterministic scraping. Start Lightpanda first: `lightpanda serve --port 9222`. Use 127.0.0.1, not localhost: Playwright's WebSocket client never completes the CDP handshake against the localhost form. NOTE: scripts/test-mcp.py shows this server is currently broken regardless - Lightpanda emits no Page lifecycle events, so every Playwright navigation times out. Lightpanda's own `lightpanda mcp` stdio server does work; see ../docs/DECISIONS.md. Install: curl -fsSL https://pkg.lightpanda.io/install.sh | bash"
     },
     "codegraph": {
       "type": "stdio",

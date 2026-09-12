@@ -431,3 +431,90 @@ services (self-hosted Firecrawl, Obsidian vault, Bifrost instance). Kept
 private by default; secrets themselves are never committed (see
 `mcp/mcp-servers.json` placeholders) so it could be made public later after
 a final scan.
+
+## MCP servers are tested by driving a real `claude -p` session
+
+`scripts/verify-env.sh` only proves binaries are on PATH. That says nothing
+about whether a *registered* MCP server actually answers, so
+`scripts/test-mcp.py` drives a real `claude -p --model sonnet` session per
+server and checks the result.
+
+The hard part is that most of these prompts can be answered *without* the
+server under test - the model already knows what octocat/Hello-World's
+README says, and can reach a URL with WebFetch. A naive harness would go
+green against a completely dead server. So every case is validated in three
+independent layers:
+
+1. **connected** - the server's tools appear in the session's `init` event
+2. **invoked** - the expected tool shows up as a real `tool_use` in the
+   transcript
+3. **correct** - the final answer matches an expected pattern
+
+and each case runs with `--strict-mcp-config` (only the server under test),
+a tool allowlist, and an explicit denylist of
+WebFetch/WebSearch/Bash/Read/Glob/Grep. This was verified by pointing the
+GitHub case at a nonexistent binary: it fails at layer 1 rather than
+passing from the model's own knowledge.
+
+Test pages were chosen to be stable and to have a *discriminating* answer:
+
+- `example.com` - IANA-maintained, reserved by RFC 2606. Assertions use the
+  `Example Domain` heading, not the body copy, which has since been
+  reworded from the familiar "illustrative examples in documents".
+- `quotes.toscrape.com/js/` - Zyte's scraping sandbox, published for exactly
+  this purpose. Its quote list is built from a `var data = [...]` array by
+  JavaScript, so a JS-executing browser sees 10 `.quote` elements and a
+  plain HTTP fetch sees 0. That single number separates a real headless
+  browser from a bare fetch, which is why it backs the Firecrawl, browser-use
+  and Lightpanda cases.
+- `octocat/Hello-World` - the canonical GitHub test repo; its `README` has
+  read `Hello World!` since 2011.
+- Context7 asserts on the registry-assigned ID `/colinhacks/zod`, which the
+  model cannot plausibly produce without a real lookup.
+
+Cases skip (rather than fail) when a server isn't registered or a
+prerequisite is missing, so the suite stays meaningful on a partial setup.
+The Obsidian case is deliberately read-only (`library_stats`) - a test must
+never write into someone's real vault.
+
+## Lightpanda behind @playwright/mcp does not work
+
+`scripts/test-mcp.py` found the `lightpanda-playwright` server to be broken.
+Two separate causes, both confirmed directly against the CDP endpoint:
+
+1. `--cdp-endpoint ws://localhost:9222` never completes the WebSocket
+   handshake, while `ws://127.0.0.1:9222` connects immediately. Fixed in
+   `mcp/mcp-servers.json`. Lightpanda also rejects any upgrade request
+   carrying an `Origin` header with a 403, which is the likely mechanism.
+2. With the connection fixed, navigation still times out. Playwright waits
+   for a `Page.lifecycleEvent`/`frameStoppedLoading` after `Page.navigate`;
+   Lightpanda 1.0.0-nightly answers the `Page.navigate` command but emits no
+   such event, so every `goto` hangs until timeout regardless of
+   `waitUntil`. Reproduced with playwright-core 1.59, 1.62 and 1.63, and by
+   speaking raw CDP over a hand-rolled WebSocket client.
+
+Lightpanda itself is fine - `lightpanda fetch --dump` renders pages, and its
+own `lightpanda mcp` stdio server navigates and evaluates correctly
+(`evaluate` with `{url, script}` on the JS quotes page returns `10`). That
+server needs no separate `serve` process, no port, and no `@playwright/mcp`
+dependency, and exposes a richer surface (`goto`, `markdown`, `evaluate`,
+`extract`, form/DOM tools, sessions).
+
+Switching to it is the obvious fix, but it changes the tool surface agents
+see, so it is left as a decision rather than applied here. The suite keeps
+failing on this server on purpose: it is genuinely broken, and hiding that
+behind an expected-failure marker would defeat the point of the suite.
+
+## browser-use needs a browser already running
+
+`browser-use --cli-mcp` attaches to a running Chromium-family browser; it
+never launches one. On a headless box nothing is running, so every call
+fails with `chrome-not-running`, even though `setup.sh` installs Chromium.
+
+Its discovery probes only ports 9222 and 9223, and 9222 is where Lightpanda
+listens - which browser-use correctly refuses, since Lightpanda is not a
+Chromium-family browser. The reliable fix is the documented `BU_CDP_URL`
+override: `http://127.0.0.1:9223` is stable, whereas `BU_CDP_WS` embeds a
+per-launch browser UUID. `scripts/test-mcp.py` starts a headless Chromium on
+9223 when nothing is there and injects `BU_CDP_URL` into the server entry
+for the test session only.

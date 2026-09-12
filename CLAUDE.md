@@ -17,7 +17,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 - `bifrost/` - Bifrost MCP gateway install and config notes (`SETUP.md`)
 - `firecrawl/` - self-hosted Firecrawl Docker Compose setup (`.env.example`)
 - `claude-md/` - reusable `CLAUDE.md` starter: `GENERIC_TEMPLATE.md` (structure) + `init-prompt.md` (the prompt setup.sh offers to run via `claude -p`)
-- `scripts/` - installer/merge helpers used by `setup.sh`/`setup.ps1`: `ensure-gum.{sh,ps1}`, `merge-mcp-config.py`, `setup-firecrawl.{sh,ps1}`, `verify-env.{sh,ps1}`
+- `scripts/` - installer/merge helpers used by `setup.sh`/`setup.ps1`: `ensure-gum.{sh,ps1}`, `merge-mcp-config.py`, `setup-firecrawl.{sh,ps1}`, `verify-env.{sh,ps1}`, `test-mcp.py`
 - `githooks/commit-msg` - Conventional Commits enforcement hook, wired via `git config core.hooksPath githooks`
 - `docs/DECISIONS.md` - why things are configured the way they are; read before changing MCP server choices or script behavior
 
@@ -26,8 +26,9 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 - Run setup (Linux/WSL2/macOS): `./setup.sh`
 - Run setup (native Windows): `./setup.ps1`
 - Verify local dependencies are on PATH: `./scripts/verify-env.sh` (or `.ps1` on Windows)
+- Verify the registered MCP servers actually answer: `python3 scripts/test-mcp.py` (`--list`, `--filter NAME`, `--jobs N`); drives a real `claude -p` session per server, so it costs tokens and takes a few minutes
 - Bring up self-hosted Firecrawl only: `./scripts/setup-firecrawl.sh`
-- No build step, no test suite, no linter — there is no application code to compile or test
+- No build step and no linter — there is no application code to compile. `scripts/test-mcp.py` is an integration suite against live MCP servers, not a unit-test suite
 
 ## Verification
 
@@ -36,6 +37,8 @@ After changing a script in this repo:
 1. Shellcheck any modified `.sh` file: `shellcheck setup.sh scripts/*.sh githooks/commit-msg`
 2. Re-run the modified script end-to-end against a scratch copy of the repo when it touches installs or `~/.claude.json` — never against the real checkout, since e.g. `codegraph init` and MCP registration mutate real local state
 3. For `githooks/commit-msg` changes, hand-test both an accepting and a rejecting commit message before relying on it
+4. After changing anything under `mcp/` or the merge logic, run `python3 scripts/test-mcp.py` — `verify-env.sh` only proves binaries exist, not that a registered server answers
+5. When adding a case to `scripts/test-mcp.py`, prove it can fail: point the server entry at a nonexistent binary and confirm it reports FAIL, not PASS. Several prompts are answerable from the model's own knowledge, so a case that never fails is testing nothing
 
 ## Conventions
 
