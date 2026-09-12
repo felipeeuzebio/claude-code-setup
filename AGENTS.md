@@ -77,7 +77,7 @@ Two more gotchas found running this in practice:
   browser-use requires Python >=3.11, but `uvx` doesn't reliably pick a
   satisfying interpreter if an older managed one (e.g. a stray 3.10) is
   already on the machine, even when a newer default Python exists
-  system-wide. Pinned in `mcp/mcp-servers.json`'s args; `uv` downloads 3.12
+  system-wide. Pinned in `mcp-servers.json`'s args; `uv` downloads 3.12
   on demand if needed.
 - **Chromium install is not something `setup.sh`/`setup.ps1` run for
   you.** `uvx browser-use[cli] install` (needed once, before first use)
@@ -259,7 +259,7 @@ it's wired up automatically on setup.
 The repo stores MCP server topology and setup scripts referencing personal
 services (self-hosted Firecrawl, Obsidian vault, Bifrost instance). Kept
 private by default; secrets themselves are never committed (see
-`mcp/mcp-servers.json` placeholders) so it could be made public later
+`mcp-servers.json` placeholders) so it could be made public later
 after a final scan.
 
 ## MCP servers are tested by driving a real `claude -p` session
@@ -316,7 +316,7 @@ separate causes:
 
 1. `--cdp-endpoint ws://localhost:9222` never completes the WebSocket
    handshake, while `ws://127.0.0.1:9222` connects immediately - fixed in
-   `mcp/mcp-servers.json`. Lightpanda rejects any upgrade request carrying
+   `mcp-servers.json`. Lightpanda rejects any upgrade request carrying
    an `Origin` header with a 403, which is the likely mechanism.
 2. With the connection fixed, navigation still times out. Playwright
    waits for a `Page.lifecycleEvent`/`frameStoppedLoading` after
@@ -332,7 +332,7 @@ and no `@playwright/mcp` dependency, and exposes a richer surface (`tree`,
 `markdown`, `html`, `findElement`, `evaluate`, `extract`, form/DOM tools,
 sessions).
 
-`mcp/mcp-servers.json`'s `lightpanda-playwright` entry has been replaced
+`mcp-servers.json`'s `lightpanda-playwright` entry has been replaced
 with `lightpanda` (`command: lightpanda`, `args: ["mcp"]`), and
 `scripts/test-mcp.py`'s case now drives `evaluate` directly. This does
 change the tool surface agents see (different tool names, a text/DOM-

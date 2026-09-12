@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Callable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SOURCE_PATH = REPO_ROOT / "mcp" / "mcp-servers.json"
+SOURCE_PATH = REPO_ROOT / "mcp-servers.json"
 TARGET_PATH = Path.home() / ".claude.json"
 
 Server = dict

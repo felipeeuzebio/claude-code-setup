@@ -11,7 +11,7 @@ setup.ps1             One-shot setup for native Windows (Lightpanda needs WSL2 t
 .env.example          Secrets/flags setup.sh and setup.ps1 read, plus self-hosted Firecrawl's own env
 AGENTS.md              Why things are configured the way they are - read before changing MCP server choices or script behavior
 CLAUDE_TEMPLATE.md     The CLAUDE.md-generation prompt (starter structure embedded) setup.sh/setup.ps1 offer to run
-mcp/                   Standalone MCP server definitions (works with or without Bifrost)
+mcp-servers.json       Standalone MCP server definitions (works with or without Bifrost)
 scripts/               Installer/merge helpers used by setup.sh/setup.ps1, incl. self-hosted Firecrawl bring-up
 githooks/              commit-msg hook enforcing Conventional Commits (wired up by setup.sh/setup.ps1)
 ```

@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SOURCE_PATH = REPO_ROOT / "mcp" / "mcp-servers.json"
+SOURCE_PATH = REPO_ROOT / "mcp-servers.json"
 CLAUDE_CONFIG = Path.home() / ".claude.json"
 
 CHROME_PORT = 9223

@@ -13,7 +13,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 ## Structure
 
 - `setup.sh` / `setup.ps1` - one-shot environment setup, idempotent, platform-specific entry points
-- `mcp/mcp-servers.json` - standalone MCP server definitions (GitHub, Context7, Firecrawl, Obsidian/librarian-mcp, browser-use, Lightpanda's native MCP server, Codegraph)
+- `mcp-servers.json` (root) - standalone MCP server definitions (GitHub, Context7, Firecrawl, Obsidian/librarian-mcp, browser-use, Lightpanda's native MCP server, Codegraph)
 - `.env.example` - secrets/flags `setup.sh`/`setup.ps1` read, plus self-hosted Firecrawl's own docker-compose env (copied as-is into that checkout by `scripts/setup-firecrawl.sh`)
 - `CLAUDE_TEMPLATE.md` (root) - reusable `CLAUDE.md`-generation prompt, starter structure embedded, that setup.sh offers to run via `claude -p`
 - `scripts/` - installer/merge helpers used by `setup.sh`/`setup.ps1`: `ensure-gum.{sh,ps1}`, `merge-mcp-config.py`, `setup-firecrawl.{sh,ps1}`, `verify-env.{sh,ps1}`, `test-mcp.py`
@@ -36,7 +36,7 @@ After changing a script in this repo:
 1. Shellcheck any modified `.sh` file: `shellcheck setup.sh scripts/*.sh githooks/commit-msg`
 2. Re-run the modified script end-to-end against a scratch copy of the repo when it touches installs or `~/.claude.json` — never against the real checkout, since e.g. `codegraph init` and MCP registration mutate real local state
 3. For `githooks/commit-msg` changes, hand-test both an accepting and a rejecting commit message before relying on it
-4. After changing anything under `mcp/` or the merge logic, run `python3 scripts/test-mcp.py` — `verify-env.sh` only proves binaries exist, not that a registered server answers
+4. After changing `mcp-servers.json` or the merge logic, run `python3 scripts/test-mcp.py` — `verify-env.sh` only proves binaries exist, not that a registered server answers
 5. When adding a case to `scripts/test-mcp.py`, prove it can fail: point the server entry at a nonexistent binary and confirm it reports FAIL, not PASS. Several prompts are answerable from the model's own knowledge, so a case that never fails is testing nothing
 
 ## Conventions

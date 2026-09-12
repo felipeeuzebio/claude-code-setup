@@ -32,4 +32,4 @@ echo "Starting Firecrawl via docker compose in $CHECKOUT_DIR ..."
 
 echo
 echo "Firecrawl should be reachable at http://localhost:3002"
-echo "Point mcp/mcp-servers.json's firecrawl.env.FIRECRAWL_API_URL at that address (already set by default)."
+echo "Point mcp-servers.json's firecrawl.env.FIRECRAWL_API_URL at that address (already set by default)."

@@ -296,7 +296,7 @@ step "Summary - what's left for you"
 block 4 34 "1. Open http://localhost:8080, finish Bifrost onboarding, generate a virtual key.
    claude mcp add --transport http bifrost http://localhost:8080/mcp --header \"Authorization: Bearer <key>\" --scope user
 2. In the Bifrost UI, add downstream servers you'd rather gateway than run direct
-   (command/args/env are in mcp/mcp-servers.json).
+   (command/args/env are in mcp-servers.json).
 
 Run scripts/verify-env.sh anytime to recheck what's installed."
 
