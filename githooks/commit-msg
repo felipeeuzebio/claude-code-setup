@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Enforces this repo's commit message convention:
+#
+#   type: concise summary        (Conventional Commits, <=72 chars, no period)
+#   <blank line>
+#   - bullet point body          (optional; one or more "- "/"* " lines)
+#   Co-Authored-By: ...          (trailer lines are exempt from the bullet rule)
+#
+# Installed via `git config core.hooksPath githooks` (see ../docs/DECISIONS.md)
+# rather than dropped into .git/hooks/, so it's tracked and shared by clones
+# instead of only existing on whichever machine created it. This is a
+# commit-msg hook, not pre-commit - pre-commit runs before the message
+# exists and never receives it as an argument.
+set -euo pipefail
+
+MSG_FILE="$1"
+TYPES="feat|fix|refactor|docs|test|chore|perf|ci"
+MAX_SUBJECT_LEN=72
+
+subject=""
+error=""
+line_no=0
+
+while IFS= read -r line || [ -n "$line" ]; do
+  line="${line%$'\r'}"
+  [[ "$line" == '#'* ]] && continue
+  line_no=$((line_no + 1))
+
+  if [ "$line_no" -eq 1 ]; then
+    subject="$line"
+  elif [ "$line_no" -eq 2 ]; then
+    if [ -n "$line" ]; then
+      error="leave a blank line between the subject and the body"
+      break
+    fi
+  elif [ -n "$line" ]; then
+    if [[ "$line" =~ ^[A-Za-z][A-Za-z-]*:\ .+ ]]; then
+      continue # trailer, e.g. "Co-Authored-By: ..."
+    elif [[ "$line" =~ ^[[:space:]]*[-*]\ .+ ]]; then
+      continue # bullet point
+    else
+      error="body lines must be bullet points ('- ...') or a trailer line (e.g. 'Co-Authored-By: ...')
+  got: $line"
+      break
+    fi
+  fi
+done <"$MSG_FILE"
+
+if [ -z "$subject" ]; then
+  error="empty commit message"
+elif [ -z "$error" ] && ! [[ "$subject" =~ ^($TYPES)(\([a-z0-9._/-]+\))?:\ .+ ]]; then
+  error="subject must follow Conventional Commits: type: description (or type(scope): description)
+  allowed types: ${TYPES//|/, }
+  got: $subject"
+elif [ -z "$error" ] && [ "${#subject}" -gt "$MAX_SUBJECT_LEN" ]; then
+  error="subject too long (${#subject} chars, max $MAX_SUBJECT_LEN) - keep it concise
+  got: $subject"
+fi
+
+if [ -n "$error" ]; then
+  echo "commit-msg: $error" >&2
+  exit 1
+fi

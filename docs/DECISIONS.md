@@ -385,6 +385,45 @@ before the "registered" line, correct switching between the `init` and
 `sync` prompts based on whether `.codegraph/` already existed, and that
 declining either one leaves the directory untouched.
 
+## Commit message convention enforced via a commit-msg hook, not pre-commit
+
+Every commit up to this point had a wordy, non-conventional message. Fixed
+going forward with a hook requiring `type: concise summary` (Conventional
+Commits, types restricted to the set already declared in this machine's
+global git-workflow rules: feat/fix/refactor/docs/test/chore/perf/ci,
+<=72 chars, no scope required but `type(scope):` is accepted) plus, if a
+body is present, every line must be a `- ` bullet or a trailer
+(`Co-Authored-By: ...` and similar `Token: value` lines are exempt from
+the bullet rule specifically so attribution trailers still work).
+
+This had to be a **commit-msg** hook, not pre-commit as originally asked
+for - pre-commit runs before the commit message is written and is never
+given it as an argument, so it structurally cannot validate message
+content. commit-msg receives the message's temp file path as `$1` and
+can reject the commit by exiting non-zero.
+
+The script itself lives at `githooks/commit-msg`, tracked in the repo,
+rather than dropped straight into `.git/hooks/` - hooks placed there
+aren't committed or cloned with the repo, so every clone would silently
+have no enforcement at all. `git config core.hooksPath githooks` points
+git at the tracked directory instead; `setup.sh`/`setup.ps1` run that
+config command as their first step so it's wired up automatically on
+setup, not just on the machine that authored it.
+
+Verified live: fed the hook nine hand-built cases (valid message, valid
+with no body, valid with a scope, invalid type, subject over the length
+limit, missing blank line before the body, a prose body line, a
+trailer-only body, and an empty message) - all matched their expected
+accept/reject outcome. Then, separately, staged this hook's own file and
+ran a real `git commit` with a deliberately non-conventional message
+against it live (not just the script standalone) to confirm git itself
+actually invokes and enforces it once `core.hooksPath` is set - it was
+rejected as expected.
+
+**Existing history was rewritten to match**, since all 16 prior commits
+predated this hook and used the old verbose/non-conventional style -
+see the commit that follows this one for how.
+
 ## Repo: private
 
 The repo stores MCP server topology and setup scripts referencing personal

@@ -70,6 +70,19 @@ function Show-Prompt($lead, $promptFile) {
 
 try {
 
+Step "Git commit-msg hook"
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    git -C $RepoRoot rev-parse --is-inside-work-tree *> $null
+    if ($LASTEXITCODE -eq 0) {
+        git -C $RepoRoot config core.hooksPath githooks
+        Ok "commit-msg now enforces Conventional Commits (see githooks/commit-msg)"
+    } else {
+        Skip "not a git checkout"
+    }
+} else {
+    Skip "git not available"
+}
+
 Step "Checking required tools"
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Write-Error "node is required - install it first (https://nodejs.org)"

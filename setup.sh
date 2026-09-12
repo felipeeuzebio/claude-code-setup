@@ -86,6 +86,14 @@ confirm() {
   fi
 }
 
+step "Git commit-msg hook"
+if git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git -C "$REPO_ROOT" config core.hooksPath githooks
+  ok "commit-msg now enforces Conventional Commits (see githooks/commit-msg)"
+else
+  skip "not a git checkout"
+fi
+
 step "Checking required tools"
 command -v node >/dev/null || { echo "node is required - install it first (https://nodejs.org)"; exit 1; }
 command -v npx  >/dev/null || { echo "npx is required (ships with node >=8.2)"; exit 1; }

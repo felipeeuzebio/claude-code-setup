@@ -14,6 +14,7 @@ mcp/              Standalone MCP server definitions (works with or without Bifro
 firecrawl/        Self-hosted Firecrawl (Docker Compose) setup
 claude-md/        Reusable, language-agnostic CLAUDE.md starter template
 scripts/          Installer/merge helpers used by setup.sh/setup.ps1
+githooks/         commit-msg hook enforcing Conventional Commits (wired up by setup.sh/setup.ps1)
 docs/DECISIONS.md Why things are configured the way they are
 ```
 
