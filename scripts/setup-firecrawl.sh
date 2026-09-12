@@ -25,7 +25,7 @@ else
   git -C "$CHECKOUT_DIR" pull --ff-only
 fi
 
-cp -n "$SCRIPT_DIR/../tools/firecrawl/.env.example" "$CHECKOUT_DIR/.env" || true
+cp -n "$SCRIPT_DIR/../.env.example" "$CHECKOUT_DIR/.env" || true
 
 echo "Starting Firecrawl via docker compose in $CHECKOUT_DIR ..."
 (cd "$CHECKOUT_DIR" && docker compose up -d)

@@ -8,12 +8,10 @@ set of MCP servers, and a reusable language-agnostic `CLAUDE.md` starter.
 ```
 setup.sh              One-shot setup for Linux (native or WSL2) and macOS
 setup.ps1             One-shot setup for native Windows (Lightpanda needs WSL2 though)
-.env.example          Optional secrets/flags setup.sh and setup.ps1 read
-CLAUDE_TEMPLATE.md     The CLAUDE.md-generation prompt setup.sh/setup.ps1 offer to run
-GENERIC_TEMPLATE.md    The starter CLAUDE.md structure that prompt fills in
+.env.example          Secrets/flags setup.sh and setup.ps1 read, plus self-hosted Firecrawl's own env
+CLAUDE_TEMPLATE.md     The CLAUDE.md-generation prompt (starter structure embedded) setup.sh/setup.ps1 offer to run
 mcp/                   Standalone MCP server definitions (works with or without Bifrost)
-tools/                 Self-hosted tooling this setup wires in (currently: tools/firecrawl/)
-scripts/               Installer/merge helpers used by setup.sh/setup.ps1
+scripts/               Installer/merge helpers used by setup.sh/setup.ps1, incl. self-hosted Firecrawl bring-up
 githooks/              commit-msg hook enforcing Conventional Commits (wired up by setup.sh/setup.ps1)
 docs/                  Why things are configured the way they are (DECISIONS.md), plus BIFROST.md
 ```
@@ -24,7 +22,7 @@ docs/                  Why things are configured the way they are (DECISIONS.md)
 |---|---|---|
 | GitHub | repo/issue/PR operations | needs `GITHUB_PERSONAL_ACCESS_TOKEN` |
 | Context7 | live library docs lookup | no key required |
-| Firecrawl | web scraping/crawling | self-hosted via Docker Compose, see `tools/firecrawl/` |
+| Firecrawl | web scraping/crawling | self-hosted via Docker Compose, see `scripts/setup-firecrawl.sh` |
 | Obsidian (librarian-mcp) | read/search/write your vault + graph analytics | reads the vault off disk, no Obsidian process needed |
 | browser-use | low-level browser control, Claude drives the steps | self-hosted via `uvx`, no API key needed |
 | Lightpanda | fast local browser engine, text/DOM-oriented tools | its own native MCP server (`lightpanda mcp`, stdio), no CDP wrapper |
@@ -66,7 +64,7 @@ part in detail.
 
 Separately, if this repo has no `CLAUDE.md` yet, `setup.sh`/`setup.ps1` ask
 whether to generate one now via `claude -p` using `CLAUDE_TEMPLATE.md`
-(which fills in `GENERIC_TEMPLATE.md`'s structure from the repo's
+(which fills in its embedded starter structure from the repo's
 actual manifests/scripts/layout - not Claude Code's generic `/init` output).
 Say no (or run non-interactively) and it just prints that same prompt so you
 can paste it into any Claude Code session, here or in another project,
@@ -74,7 +72,7 @@ whenever you're ready. It never overwrites an existing `CLAUDE.md`.
 
 ## Credit
 
-`GENERIC_TEMPLATE.md` is adapted from
+The CLAUDE.md template embedded in `CLAUDE_TEMPLATE.md` is adapted from
 [abhishekray07/claude-md-templates](https://github.com/abhishekray07/claude-md-templates)
 and cross-checked against
 [centminmod/my-claude-code-setup](https://github.com/centminmod/my-claude-code-setup).

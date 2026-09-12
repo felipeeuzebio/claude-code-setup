@@ -19,7 +19,7 @@
       "env": {
         "FIRECRAWL_API_URL": "http://localhost:3002"
       },
-      "description": "Self-hosted Firecrawl (see ../tools/firecrawl/), verified working via a live scrape smoke test. USE_DB_AUTHENTICATION=false in this setup so no FIRECRAWL_API_KEY is needed; add one back if you turn auth on. To use Firecrawl Cloud instead, drop FIRECRAWL_API_URL and set a real FIRECRAWL_API_KEY."
+      "description": "Self-hosted Firecrawl (see ../scripts/setup-firecrawl.sh and its section in ../.env.example), verified working via a live scrape smoke test. USE_DB_AUTHENTICATION=false in this setup so no FIRECRAWL_API_KEY is needed; add one back if you turn auth on. To use Firecrawl Cloud instead, drop FIRECRAWL_API_URL and set a real FIRECRAWL_API_KEY."
     },
     "obsidian": {
       "command": "librarian-mcp",

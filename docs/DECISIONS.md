@@ -26,7 +26,7 @@ the time `scripts/setup-firecrawl.sh` ran — confirming WSL integration was
 enabled correctly.
 
 Two real issues came up bringing the stack up for the first time, both
-fixed and captured in `scripts/setup-firecrawl.sh` / `tools/firecrawl/.env.example`:
+fixed and captured in `scripts/setup-firecrawl.sh` / the Firecrawl section of `.env.example`:
 
 - **RabbitMQ `EACCES` on `.erlang.cookie`** on the very first `up` - a
   known Docker-Desktop-on-WSL2 anonymous-volume permission quirk. Fixed by
@@ -257,9 +257,9 @@ answer is no (or the run is non-interactive), just print the prompt so it
 can be pasted into any Claude Code session whenever it's wanted, here or in
 another project. That doesn't need a permanently-installed command:
 
-- `CLAUDE_TEMPLATE.md` (root) holds the prompt text (instructions + the
-  `GENERIC_TEMPLATE.md` structure) with no slash-command frontmatter - it's
-  just a prompt, read by the setup scripts and cat-able by a human.
+- `CLAUDE_TEMPLATE.md` (root) holds the prompt text with the starter
+  structure embedded, no slash-command frontmatter - it's just a prompt,
+  read by the setup scripts and cat-able by a human.
 - If `CLAUDE.md` already exists in the repo, the step is skipped outright -
   it never overwrites hand-written project knowledge a repo-scan wouldn't
   rediscover. The "yes" path also tells the model to summarize changes and

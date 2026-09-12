@@ -20,7 +20,7 @@ if (-not (Test-Path $CheckoutDir)) {
 
 $envTarget = Join-Path $CheckoutDir ".env"
 if (-not (Test-Path $envTarget)) {
-    Copy-Item (Join-Path $ScriptDir "..\tools\firecrawl\.env.example") $envTarget
+    Copy-Item (Join-Path $ScriptDir "..\.env.example") $envTarget
 }
 
 Write-Host "Starting Firecrawl via docker compose in $CheckoutDir ..."
