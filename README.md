@@ -6,16 +6,16 @@ set of MCP servers, and a reusable language-agnostic `CLAUDE.md` starter.
 ## Layout
 
 ```
-setup.sh          One-shot setup for Linux (native or WSL2) and macOS
-setup.ps1         One-shot setup for native Windows (Lightpanda needs WSL2 though)
-.env.example      Optional secrets/flags setup.sh and setup.ps1 read
-bifrost/          Bifrost MCP gateway install + config notes
-mcp/              Standalone MCP server definitions (works with or without Bifrost)
-firecrawl/        Self-hosted Firecrawl (Docker Compose) setup
-claude-md/        Reusable, language-agnostic CLAUDE.md starter template
-scripts/          Installer/merge helpers used by setup.sh/setup.ps1
-githooks/         commit-msg hook enforcing Conventional Commits (wired up by setup.sh/setup.ps1)
-docs/DECISIONS.md Why things are configured the way they are
+setup.sh              One-shot setup for Linux (native or WSL2) and macOS
+setup.ps1             One-shot setup for native Windows (Lightpanda needs WSL2 though)
+.env.example          Optional secrets/flags setup.sh and setup.ps1 read
+CLAUDE_TEMPLATE.md     The CLAUDE.md-generation prompt setup.sh/setup.ps1 offer to run
+GENERIC_TEMPLATE.md    The starter CLAUDE.md structure that prompt fills in
+mcp/                   Standalone MCP server definitions (works with or without Bifrost)
+tools/                 Self-hosted tooling this setup wires in (currently: tools/firecrawl/)
+scripts/               Installer/merge helpers used by setup.sh/setup.ps1
+githooks/              commit-msg hook enforcing Conventional Commits (wired up by setup.sh/setup.ps1)
+docs/                  Why things are configured the way they are (DECISIONS.md), plus BIFROST.md
 ```
 
 ## MCP servers included
@@ -24,10 +24,10 @@ docs/DECISIONS.md Why things are configured the way they are
 |---|---|---|
 | GitHub | repo/issue/PR operations | needs `GITHUB_PERSONAL_ACCESS_TOKEN` |
 | Context7 | live library docs lookup | no key required |
-| Firecrawl | web scraping/crawling | self-hosted via Docker Compose, see `firecrawl/` |
+| Firecrawl | web scraping/crawling | self-hosted via Docker Compose, see `tools/firecrawl/` |
 | Obsidian (librarian-mcp) | read/search/write your vault + graph analytics | reads the vault off disk, no Obsidian process needed |
 | browser-use | low-level browser control, Claude drives the steps | self-hosted via `uvx`, no API key needed |
-| Lightpanda | fast local CDP browser engine | pairs with the Playwright MCP via `--cdp-endpoint` |
+| Lightpanda | fast local browser engine, text/DOM-oriented tools | its own native MCP server (`lightpanda mcp`, stdio), no CDP wrapper |
 | Codegraph | codebase knowledge graph (callers/callees/impact) | already installed locally, registered directly |
 
 Graphify was evaluated and intentionally left out — see `docs/DECISIONS.md`.
@@ -61,12 +61,12 @@ than just skipping that one step.
 
 It prints exactly what's left afterward: generating a Bifrost virtual key
 (an interactive UI step) and adding any servers you'd rather gateway
-through Bifrost instead of running direct. See `bifrost/SETUP.md` for that
+through Bifrost instead of running direct. See `docs/BIFROST.md` for that
 part in detail.
 
 Separately, if this repo has no `CLAUDE.md` yet, `setup.sh`/`setup.ps1` ask
-whether to generate one now via `claude -p` using `claude-md/init-prompt.md`
-(which fills in `claude-md/GENERIC_TEMPLATE.md`'s structure from the repo's
+whether to generate one now via `claude -p` using `CLAUDE_TEMPLATE.md`
+(which fills in `GENERIC_TEMPLATE.md`'s structure from the repo's
 actual manifests/scripts/layout - not Claude Code's generic `/init` output).
 Say no (or run non-interactively) and it just prints that same prompt so you
 can paste it into any Claude Code session, here or in another project,
@@ -74,7 +74,7 @@ whenever you're ready. It never overwrites an existing `CLAUDE.md`.
 
 ## Credit
 
-`claude-md/GENERIC_TEMPLATE.md` is adapted from
+`GENERIC_TEMPLATE.md` is adapted from
 [abhishekray07/claude-md-templates](https://github.com/abhishekray07/claude-md-templates)
 and cross-checked against
 [centminmod/my-claude-code-setup](https://github.com/centminmod/my-claude-code-setup).

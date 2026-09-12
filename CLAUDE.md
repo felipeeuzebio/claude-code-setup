@@ -13,13 +13,13 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 ## Structure
 
 - `setup.sh` / `setup.ps1` - one-shot environment setup, idempotent, platform-specific entry points
-- `mcp/mcp-servers.json` - standalone MCP server definitions (GitHub, Context7, Firecrawl, Obsidian/librarian-mcp, browser-use, Lightpanda-backed Playwright, Codegraph)
-- `bifrost/` - Bifrost MCP gateway install and config notes (`SETUP.md`)
-- `firecrawl/` - self-hosted Firecrawl Docker Compose setup (`.env.example`)
-- `claude-md/` - reusable `CLAUDE.md` starter: `GENERIC_TEMPLATE.md` (structure) + `init-prompt.md` (the prompt setup.sh offers to run via `claude -p`)
+- `mcp/mcp-servers.json` - standalone MCP server definitions (GitHub, Context7, Firecrawl, Obsidian/librarian-mcp, browser-use, Lightpanda's native MCP server, Codegraph)
+- `tools/firecrawl/` - self-hosted Firecrawl Docker Compose setup (`.env.example`)
+- `CLAUDE_TEMPLATE.md` / `GENERIC_TEMPLATE.md` (root) - reusable `CLAUDE.md` starter: the prompt setup.sh offers to run via `claude -p`, and the structure it fills in
 - `scripts/` - installer/merge helpers used by `setup.sh`/`setup.ps1`: `ensure-gum.{sh,ps1}`, `merge-mcp-config.py`, `setup-firecrawl.{sh,ps1}`, `verify-env.{sh,ps1}`, `test-mcp.py`
 - `githooks/commit-msg` - Conventional Commits enforcement hook, wired via `git config core.hooksPath githooks`
 - `docs/DECISIONS.md` - why things are configured the way they are; read before changing MCP server choices or script behavior
+- `docs/BIFROST.md` - Bifrost MCP gateway install and config notes
 
 ## Commands
 

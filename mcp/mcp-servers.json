@@ -19,7 +19,7 @@
       "env": {
         "FIRECRAWL_API_URL": "http://localhost:3002"
       },
-      "description": "Self-hosted Firecrawl (see ../firecrawl/), verified working via a live scrape smoke test. USE_DB_AUTHENTICATION=false in this setup so no FIRECRAWL_API_KEY is needed; add one back if you turn auth on. To use Firecrawl Cloud instead, drop FIRECRAWL_API_URL and set a real FIRECRAWL_API_KEY."
+      "description": "Self-hosted Firecrawl (see ../tools/firecrawl/), verified working via a live scrape smoke test. USE_DB_AUTHENTICATION=false in this setup so no FIRECRAWL_API_KEY is needed; add one back if you turn auth on. To use Firecrawl Cloud instead, drop FIRECRAWL_API_URL and set a real FIRECRAWL_API_KEY."
     },
     "obsidian": {
       "command": "librarian-mcp",
@@ -29,12 +29,12 @@
     "browser-use": {
       "command": "uvx",
       "args": ["--python", "3.12", "browser-use[cli]", "--cli-mcp"],
-      "description": "Low-level browser control (browser_exec/browser_screenshot) backed by browser-use's Chromium-based \"browser harness\" - Claude Code itself decides the steps by writing the automation code, rather than browser-use running its own internal LLM agent. No API key of any kind needed, unlike browser-use's other MCP mode (--mcp, an autonomous agent hardcoded to OpenAI - see ../docs/DECISIONS.md). --python 3.12 is pinned because browser-use needs >=3.11 and uvx isn't guaranteed to pick a satisfying interpreter on its own (see ../docs/DECISIONS.md). Requires `uv`/`uvx` on PATH (https://docs.astral.sh/uv/) and Chromium installed once via `uvx browser-use[cli] install` (may prompt for sudo on Linux - see ../docs/DECISIONS.md, not something setup.sh/setup.ps1 run for you). Complements lightpanda-playwright below (this is exec-driven and stateful; that one is the standard Playwright MCP tool surface)."
+      "description": "Low-level browser control (browser_exec/browser_screenshot) backed by browser-use's Chromium-based \"browser harness\" - Claude Code itself decides the steps by writing the automation code, rather than browser-use running its own internal LLM agent. No API key of any kind needed, unlike browser-use's other MCP mode (--mcp, an autonomous agent hardcoded to OpenAI - see ../docs/DECISIONS.md). --python 3.12 is pinned because browser-use needs >=3.11 and uvx isn't guaranteed to pick a satisfying interpreter on its own (see ../docs/DECISIONS.md). Requires `uv`/`uvx` on PATH (https://docs.astral.sh/uv/) and Chromium installed once via `uvx browser-use[cli] install` (may prompt for sudo on Linux - see ../docs/DECISIONS.md, not something setup.sh/setup.ps1 run for you). Complements lightpanda below (this drives a real Chromium via exec'd Python; that one is a lighter, text-oriented engine for deterministic scraping)."
     },
-    "lightpanda-playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp", "--cdp-endpoint", "ws://127.0.0.1:9222"],
-      "description": "Playwright MCP driven by a local Lightpanda browser instead of Chrome, for fast/cheap deterministic scraping. Start Lightpanda first: `lightpanda serve --port 9222`. Use 127.0.0.1, not localhost: Playwright's WebSocket client never completes the CDP handshake against the localhost form. NOTE: scripts/test-mcp.py shows this server is currently broken regardless - Lightpanda emits no Page lifecycle events, so every Playwright navigation times out. Lightpanda's own `lightpanda mcp` stdio server does work; see ../docs/DECISIONS.md. Install: curl -fsSL https://pkg.lightpanda.io/install.sh | bash"
+    "lightpanda": {
+      "command": "lightpanda",
+      "args": ["mcp"],
+      "description": "Lightpanda's own native MCP server (stdio) - fast/cheap deterministic scraping without a full Chrome. Superseded the @playwright/mcp + --cdp-endpoint approach: that path is broken (Lightpanda emits no Page lifecycle events, so every Playwright navigation times out - see ../docs/DECISIONS.md), while this native surface (tree/markdown/html/findElement/evaluate/extract/...) drives Lightpanda's engine directly and works, verified by scripts/test-mcp.py. No separate `lightpanda serve` process or port needed - the stdio subprocess owns its own browser instance for the session. Install: curl -fsSL https://pkg.lightpanda.io/install.sh | bash"
     },
     "codegraph": {
       "type": "stdio",
@@ -44,7 +44,7 @@
     }
   },
   "_comments": {
-    "usage": "Copy the servers you need into ~/.claude.json's mcpServers section, or register the same command/args/env/url through the Bifrost UI (see ../bifrost/SETUP.md).",
+    "usage": "Copy the servers you need into ~/.claude.json's mcpServers section, or register the same command/args/env/url through the Bifrost UI (see ../docs/BIFROST.md).",
     "env_vars": "Replace YOUR_*_HERE placeholders with real values. Never commit real secrets to this repo.",
     "graphify": "Evaluated and intentionally omitted - overlaps Codegraph almost entirely and Codegraph was already installed. See ../docs/DECISIONS.md."
   }

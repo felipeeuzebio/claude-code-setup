@@ -56,7 +56,8 @@ Add, in this order (cheapest to verify first):
    needs `OBSIDIAN_VAULT_PATH` (no Obsidian process, no REST API plugin).
 5. **browser-use** — local stdio via `uvx browser-use[cli] --cli-mcp`, no
    key (Claude drives the browser directly - see `docs/DECISIONS.md`).
-6. **Lightpanda-backed Playwright** — needs `lightpanda serve` running first.
+6. **Lightpanda** — local stdio via `lightpanda mcp`, no separate server or
+   port to start first.
 7. **Firecrawl** — point at your self-hosted instance once
    `scripts/setup-firecrawl.sh` is up, or use the cloud key.
 

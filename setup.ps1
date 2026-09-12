@@ -203,7 +203,7 @@ $env:HAS_LIGHTPANDA = "false"
 Skip "No native Windows build yet - run setup.sh under WSL2 for this piece"
 
 Step "CLAUDE.md for this repo"
-$promptFile = Join-Path $RepoRoot "claude-md\init-prompt.md"
+$promptFile = Join-Path $RepoRoot "CLAUDE_TEMPLATE.md"
 $claudeMdPath = Join-Path $RepoRoot "CLAUDE.md"
 $copyLead = "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
 if (Test-Path $claudeMdPath) {

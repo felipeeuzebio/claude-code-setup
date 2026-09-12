@@ -223,11 +223,11 @@ elif install_tool lightpanda https://pkg.lightpanda.io/install.sh; then
   ok "lightpanda installed"
   HAS_LIGHTPANDA=true
 else
-  warn "lightpanda install failed - lightpanda-playwright MCP entry will be skipped"
+  warn "lightpanda install failed - lightpanda MCP entry will be skipped"
 fi
 
 step "CLAUDE.md for this repo"
-PROMPT_FILE="$REPO_ROOT/claude-md/init-prompt.md"
+PROMPT_FILE="$REPO_ROOT/CLAUDE_TEMPLATE.md"
 COPY_LEAD="Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
 show_prompt() {
   echo "  $1"

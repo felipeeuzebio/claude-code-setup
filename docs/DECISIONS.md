@@ -13,7 +13,7 @@ open-source option combines both roles.
 Caveat: Bifrost's own docs don't fully spell out the config-file schema for
 registering downstream MCP servers — that's done through its web UI
 (`http://localhost:8080`) or management API, not by hand-editing JSON we
-control. Treat `bifrost/SETUP.md` as the source of truth and re-check
+control. Treat `docs/BIFROST.md` as the source of truth and re-check
 `docs.getbifrost.ai` if the UI has moved things around.
 
 ## Firecrawl: self-hosted via Docker, not cloud
@@ -26,7 +26,7 @@ the time `scripts/setup-firecrawl.sh` ran — confirming WSL integration was
 enabled correctly.
 
 Two real issues came up bringing the stack up for the first time, both
-fixed and captured in `scripts/setup-firecrawl.sh` / `firecrawl/.env.example`:
+fixed and captured in `scripts/setup-firecrawl.sh` / `tools/firecrawl/.env.example`:
 
 - **RabbitMQ `EACCES` on `.erlang.cookie`** on the very first `up` - a
   known Docker-Desktop-on-WSL2 anonymous-volume permission quirk. Fixed by
@@ -60,13 +60,15 @@ These aren't competing choices — they sit at different layers:
   the exact sequence of steps. Self-hosted, no API key - see the addendum
   below for how that landed here.
 - **Lightpanda** is a browser *engine* (CDP-compatible, built from scratch in
-  Zig, ~11x faster / ~1/16th the memory of headless Chrome). It's wired in as
-  the backend for the Playwright MCP via `--cdp-endpoint`, for
-  performance-sensitive scripted scraping where you already know the steps.
+  Zig, ~11x faster / ~1/16th the memory of headless Chrome), registered via
+  its own native `lightpanda mcp` stdio server (not the CDP-driven
+  Playwright MCP - see "Lightpanda behind @playwright/mcp did not work"
+  below), for performance-sensitive scripted scraping where you already
+  know the steps.
 
-Use browser-use when you'd otherwise write scraping logic by hand; use the
-Lightpanda-backed Playwright MCP when you already have a deterministic
-sequence and just want it fast and cheap to run repeatedly.
+Use browser-use when you'd otherwise write scraping logic by hand; use
+Lightpanda's MCP server when you already have a deterministic sequence and
+just want it fast and cheap to run repeatedly.
 
 **Addendum: browser-use's MCP *mode*, not just its hosting, changed.**
 Went through three iterations getting this right:
@@ -255,7 +257,7 @@ answer is no (or the run is non-interactive), just print the prompt so it
 can be pasted into any Claude Code session whenever it's wanted, here or in
 another project. That doesn't need a permanently-installed command:
 
-- `claude-md/init-prompt.md` holds the prompt text (instructions + the
+- `CLAUDE_TEMPLATE.md` (root) holds the prompt text (instructions + the
   `GENERIC_TEMPLATE.md` structure) with no slash-command frontmatter - it's
   just a prompt, read by the setup scripts and cat-able by a human.
 - If `CLAUDE.md` already exists in the repo, the step is skipped outright -
@@ -264,7 +266,7 @@ another project. That doesn't need a permanently-installed command:
   wait for confirmation if the file somehow is present, as a second guard.
 - A non-interactive run (no TTY on stdin) never blocks on a prompt - it
   just prints the copy-paste block, same as answering no.
-- Saying yes runs `claude -p "$(cat claude-md/init-prompt.md)"` right there,
+- Saying yes runs `claude -p "$(cat CLAUDE_TEMPLATE.md)"` right there,
   since setup.sh/setup.ps1 already `cd` to the repo root before this step.
 
 ## gum styling: temp-download, never a system install
@@ -477,10 +479,11 @@ prerequisite is missing, so the suite stays meaningful on a partial setup.
 The Obsidian case is deliberately read-only (`library_stats`) - a test must
 never write into someone's real vault.
 
-## Lightpanda behind @playwright/mcp does not work
+## Lightpanda behind @playwright/mcp did not work - switched to its native MCP server
 
-`scripts/test-mcp.py` found the `lightpanda-playwright` server to be broken.
-Two separate causes, both confirmed directly against the CDP endpoint:
+`scripts/test-mcp.py` found the `lightpanda-playwright` server (`@playwright/mcp`
+driven over `--cdp-endpoint`) to be broken. Two separate causes, both
+confirmed directly against the CDP endpoint:
 
 1. `--cdp-endpoint ws://localhost:9222` never completes the WebSocket
    handshake, while `ws://127.0.0.1:9222` connects immediately. Fixed in
@@ -497,13 +500,17 @@ Lightpanda itself is fine - `lightpanda fetch --dump` renders pages, and its
 own `lightpanda mcp` stdio server navigates and evaluates correctly
 (`evaluate` with `{url, script}` on the JS quotes page returns `10`). That
 server needs no separate `serve` process, no port, and no `@playwright/mcp`
-dependency, and exposes a richer surface (`goto`, `markdown`, `evaluate`,
-`extract`, form/DOM tools, sessions).
+dependency, and exposes a richer surface (`tree`, `markdown`, `html`,
+`findElement`, `evaluate`, `extract`, form/DOM tools, sessions).
 
-Switching to it is the obvious fix, but it changes the tool surface agents
-see, so it is left as a decision rather than applied here. The suite keeps
-failing on this server on purpose: it is genuinely broken, and hiding that
-behind an expected-failure marker would defeat the point of the suite.
+`mcp/mcp-servers.json`'s `lightpanda-playwright` entry has been replaced
+with `lightpanda` (`command: lightpanda`, `args: ["mcp"]`), and
+`scripts/test-mcp.py`'s case now drives `evaluate` directly - no CDP
+handshake, no port, no browser-startup prerequisite. This does change the
+tool surface agents see (different tool names, a text/DOM-oriented model
+instead of the standard Playwright MCP surface); accept that tradeoff since
+the Playwright-over-CDP path cannot be made to work against Lightpanda at
+all, not just inconvenient to use.
 
 ## browser-use needs a browser already running
 
