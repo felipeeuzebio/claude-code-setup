@@ -39,37 +39,25 @@ cp .env.example .env   # fill in what you have; unset vars just get skipped
 ./setup.ps1
 ```
 
-This installs Codegraph, librarian-mcp, and (Linux/macOS only) Lightpanda,
+Installs Codegraph, librarian-mcp, and (Linux/macOS only) Lightpanda;
 registers whichever MCP servers have their required secret/path set into
-`~/.claude.json` (backing it up first), brings up self-hosted Firecrawl if
-Docker is available, and starts Bifrost. It's idempotent - re-run anytime,
-e.g. after adding a secret to `.env`.
+`~/.claude.json` (backing it up first); brings up self-hosted Firecrawl if
+Docker is available; and starts Bifrost. Idempotent - re-run anytime, e.g.
+after adding a secret to `.env`. Output uses
+[gum](https://github.com/charmbracelet/gum) if it's on your PATH, with a
+plain-text fallback otherwise - no dependency required either way. Ctrl+C
+at any point quits cleanly.
 
-Output is styled with [gum](https://github.com/charmbracelet/gum) if it's
-on your PATH; if not, the script downloads a copy into a throwaway temp
-directory for just this run and deletes it on exit - nothing gets
-installed system-wide, and everything still works in plain text if gum
-can't be reached at all (offline, unsupported OS/arch). Styling is kept
-minimal on purpose (a single foreground color per line, no borders/boxes),
-and install spinners use gum's plain ASCII spinner rather than its default
-Unicode one, which can render as mangled characters on fonts without full
-Braille Pattern support. Ctrl+C at any point - including at the CLAUDE.md
-prompt or during an install spinner - quits the whole thing cleanly rather
-than just skipping that one step.
+It prints what's left for you to do by hand: generate a Bifrost virtual
+key and register any servers you'd rather gateway through it, both via the
+web UI at http://localhost:8080 (see https://docs.getbifrost.ai).
 
-It prints exactly what's left afterward: generating a Bifrost virtual key
-(an interactive UI step) and adding any servers you'd rather gateway
-through Bifrost instead of running direct via its web UI at
-http://localhost:8080 (Settings → MCP → Add Server) - see
-https://docs.getbifrost.ai for the full config schema.
-
-Separately, if this repo has no `CLAUDE.md` yet, `setup.sh`/`setup.ps1` ask
-whether to generate one now via `claude -p` using `CLAUDE_TEMPLATE.md`
-(which fills in its embedded starter structure from the repo's
-actual manifests/scripts/layout - not Claude Code's generic `/init` output).
-Say no (or run non-interactively) and it just prints that same prompt so you
-can paste it into any Claude Code session, here or in another project,
-whenever you're ready. It never overwrites an existing `CLAUDE.md`.
+If this repo has no `CLAUDE.md` yet, you're also asked whether to generate
+one now from `CLAUDE_TEMPLATE.md`, filled in from the repo's actual
+manifests/scripts/layout rather than a generic template. Say no (or run
+non-interactively) to just get the prompt printed for pasting into any
+Claude Code session, here or elsewhere. An existing `CLAUDE.md` is never
+overwritten.
 
 ## Credit
 
@@ -78,8 +66,7 @@ The CLAUDE.md template embedded in `CLAUDE_TEMPLATE.md` is adapted from
 and cross-checked against
 [centminmod/my-claude-code-setup](https://github.com/centminmod/my-claude-code-setup).
 
-The Obsidian MCP choice (`librarian-mcp`) and general future discovery came
-from [hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) -
+The Obsidian MCP choice (`librarian-mcp`) came from
+[hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) -
 the largest curated list of Claude Code resources (skills, hooks,
-statuslines, MCP servers, agent orchestration). Worth a periodic re-check
-as this setup evolves.
+statuslines, MCP servers, agent orchestration).
