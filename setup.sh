@@ -91,7 +91,7 @@ if git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git -C "$REPO_ROOT" config core.hooksPath githooks
   ok "commit-msg now enforces Conventional Commits (see githooks/commit-msg)"
 else
-  skip "not a git checkout"
+  skip "Not a git checkout"
 fi
 
 step "Checking required tools"
@@ -132,9 +132,9 @@ if command -v codegraph >/dev/null; then
   ok "codegraph $(codegraph version 2>/dev/null || echo installed) registered in Claude Code"
 
   if [ -d "$REPO_ROOT/.codegraph" ]; then
-    CG_ACTION=sync; CG_PROMPT="Sync codegraph's index for this repo now (codegraph sync)?"; CG_SKIP_MSG="not synced"
+    CG_ACTION=sync; CG_PROMPT="Sync codegraph's index for this repo now (codegraph sync)?"; CG_SKIP_MSG="Not synced"
   else
-    CG_ACTION=init; CG_PROMPT="Index this repo with codegraph now (codegraph init)?"; CG_SKIP_MSG="not indexed"
+    CG_ACTION=init; CG_PROMPT="Index this repo with codegraph now (codegraph init)?"; CG_SKIP_MSG="Not indexed"
   fi
   if [ ! -t 0 ]; then
     echo "  Run 'codegraph $CG_ACTION' in this repo (or any project) whenever you want to build/refresh its index."
@@ -150,7 +150,7 @@ fi
 
 step "browser-use (self-hosted, Claude-driven browser control)"
 if [ "$HAS_UVX" = true ]; then
-  ok "will register (see summary below for the one-time Chromium install)"
+  ok "Will register (see summary below for the one-time Chromium install)"
 else
   skip "uvx not available"
 fi
@@ -185,7 +185,7 @@ if [ "$CAN_USE_LIGHTPANDA" = true ] && [ "${SKIP_LIGHTPANDA:-}" != "1" ]; then
     warn "lightpanda install failed - lightpanda-playwright MCP entry will be skipped"
   fi
 else
-  skip "not supported on $OS_NAME without WSL (lightpanda has no native Windows build yet)"
+  skip "Not supported on $OS_NAME without WSL (lightpanda has no native Windows build yet)"
 fi
 
 step "CLAUDE.md for this repo"
@@ -238,11 +238,11 @@ fi
 step "Bifrost gateway"
 if [ "${SKIP_BIFROST:-}" != "1" ]; then
   if curl -s -o /dev/null -w '%{http_code}' http://localhost:8080 2>/dev/null | grep -q 200; then
-    ok "already running on http://localhost:8080"
+    ok "Already running on http://localhost:8080"
   else
     nohup npx -y @maximhq/bifrost >/tmp/bifrost.log 2>&1 &
     disown
-    ok "starting in background (log: /tmp/bifrost.log) - give it a few seconds"
+    ok "Starting in background (log: /tmp/bifrost.log) - give it a few seconds"
   fi
 else
   skip "SKIP_BIFROST=1"

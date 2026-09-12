@@ -77,7 +77,7 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
         git -C $RepoRoot config core.hooksPath githooks
         Ok "commit-msg now enforces Conventional Commits (see githooks/commit-msg)"
     } else {
-        Skip "not a git checkout"
+        Skip "Not a git checkout"
     }
 } else {
     Skip "git not available"
@@ -123,9 +123,9 @@ if (Get-Command codegraph -ErrorAction SilentlyContinue) {
 
     $codegraphDir = Join-Path $RepoRoot ".codegraph"
     if (Test-Path $codegraphDir) {
-        $cgAction = "sync"; $cgPrompt = "Sync codegraph's index for this repo now (codegraph sync)?"; $cgSkipMsg = "not synced"
+        $cgAction = "sync"; $cgPrompt = "Sync codegraph's index for this repo now (codegraph sync)?"; $cgSkipMsg = "Not synced"
     } else {
-        $cgAction = "init"; $cgPrompt = "Index this repo with codegraph now (codegraph init)?"; $cgSkipMsg = "not indexed"
+        $cgAction = "init"; $cgPrompt = "Index this repo with codegraph now (codegraph init)?"; $cgSkipMsg = "Not indexed"
     }
     if ([Console]::IsInputRedirected) {
         Write-Host "  Run 'codegraph $cgAction' in this repo (or any project) whenever you want to build/refresh its index."
@@ -141,7 +141,7 @@ if (Get-Command codegraph -ErrorAction SilentlyContinue) {
 
 Step "Set up browser-use (self-hosted, Claude-driven browser control)"
 if ($env:HAS_UVX -eq "true") {
-    Ok "will register (see summary below for the one-time Chromium install)"
+    Ok "Will register (see summary below for the one-time Chromium install)"
 } else {
     Skip "uvx not available"
 }
@@ -162,7 +162,7 @@ if (Get-Command librarian-mcp -ErrorAction SilentlyContinue) {
 }
 
 Step "Lightpanda (fast local browser engine)"
-Skip "no native Windows build yet - run setup.sh under WSL2 for this piece"
+Skip "No native Windows build yet - run setup.sh under WSL2 for this piece"
 $env:HAS_LIGHTPANDA = "false"
 
 Step "CLAUDE.md for this repo"
@@ -213,10 +213,10 @@ if ($env:SKIP_BIFROST -ne "1") {
         if ($resp.StatusCode -eq 200) { $running = $true }
     } catch {}
     if ($running) {
-        Ok "already running on http://localhost:8080"
+        Ok "Already running on http://localhost:8080"
     } else {
         Start-Process -FilePath "npx" -ArgumentList "-y", "@maximhq/bifrost" -WindowStyle Hidden
-        Ok "starting in background - give it a few seconds, then open http://localhost:8080"
+        Ok "Starting in background - give it a few seconds, then open http://localhost:8080"
     }
 } else {
     Skip "SKIP_BIFROST=1"
