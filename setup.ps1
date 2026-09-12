@@ -175,8 +175,20 @@ if (Test-Path $claudeMdPath) {
 } else {
     $confirmed = Confirm-Gum "Initialize CLAUDE.md for this repo now with Claude Code?"
     if ($confirmed -and (Get-Command claude -ErrorAction SilentlyContinue)) {
-        claude -p (Get-Content $promptFile -Raw)
-        Ok "CLAUDE.md generated - review it"
+        # --allowedTools "Edit(CLAUDE.md)" scopes write access to just this
+        # file, so claude -p can actually create it instead of stopping to
+        # ask for permission it can't get non-interactively. Output is
+        # captured, not streamed, and only shown if the file wasn't created.
+        $claudeMdLog = New-TemporaryFile
+        claude -p (Get-Content $promptFile -Raw) --allowedTools "Edit(CLAUDE.md)" *> $claudeMdLog
+        if (Test-Path $claudeMdPath) {
+            Ok "CLAUDE.md generated - review it"
+        } else {
+            Warn "claude -p didn't create CLAUDE.md - see below, or use the prompt instead"
+            Get-Content $claudeMdLog
+            Show-Prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:" $promptFile
+        }
+        Remove-Item $claudeMdLog -ErrorAction SilentlyContinue
     } else {
         if ($confirmed) { Warn "claude CLI not found on PATH - here's the prompt instead" }
         Show-Prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:" $promptFile
@@ -231,8 +243,11 @@ if (-not $env:OBSIDIAN_VAULT_PATH) {
 $summaryLines += "Run scripts\verify-env.ps1 anytime to recheck what's installed."
 $summary = $summaryLines -join "`n"
 
-if ($Gum) { $summary | & $Gum style --foreground 212 }
-else { Write-Host $summary }
+# Yellow (matches Warn's color), deliberately not 212 like the step
+# headers above - this is the "you still need to do something" list, so
+# it should read as attention-needed, not blend in as just another step.
+if ($Gum) { $summary | & $Gum style --foreground 3 }
+else { Write-Host $summary -ForegroundColor Yellow }
 
 } finally {
     if ($GumTmpDir) { Remove-Item -Recurse -Force $GumTmpDir -ErrorAction SilentlyContinue }

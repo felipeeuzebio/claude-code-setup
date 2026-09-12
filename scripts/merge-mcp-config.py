@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import time
 from pathlib import Path
 from typing import Callable
@@ -20,6 +21,15 @@ TARGET_PATH = Path.home() / ".claude.json"
 
 Server = dict
 Fill = Callable[[Server], Server]
+
+YELLOW = "\033[33m"
+RESET = "\033[0m"
+
+
+def colorize(text: str, code: str) -> str:
+    if not sys.stdout.isatty() or os.environ.get("NO_COLOR"):
+        return text
+    return f"{code}{text}{RESET}"
 
 
 def env_flag(name: str) -> bool:
@@ -35,7 +45,8 @@ def build_plan(env: dict) -> dict[str, tuple[bool, Fill, str]]:
     elif not Path(vault_path).is_dir():
         vault_ready, vault_reason = (
             False,
-            f"OBSIDIAN_VAULT_PATH is not an existing directory: {vault_path}",
+            f"OBSIDIAN_VAULT_PATH is not an existing directory: {vault_path} "
+            "(under WSL2, a Windows-side vault needs /mnt/c/... not C:\\...)",
         )
     else:
         vault_ready, vault_reason = True, ""
@@ -113,7 +124,7 @@ def main() -> None:
     if skipped:
         print("Skipped:")
         for name, reason in skipped:
-            print(f"  - {name}: {reason}")
+            print(colorize(f"  - {name}: {reason}", YELLOW))
     else:
         print("Skipped: (none)")
 

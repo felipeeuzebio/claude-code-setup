@@ -201,8 +201,22 @@ elif [ ! -t 0 ]; then
   show_prompt "Not an interactive terminal - here's the prompt, paste it into any Claude Code session when you're ready:"
 elif confirm "Initialize CLAUDE.md for this repo now with Claude Code?"; then
   if command -v claude >/dev/null; then
-    claude -p "$(cat "$PROMPT_FILE")"
-    ok "CLAUDE.md generated - review it"
+    # --allowedTools "Edit(CLAUDE.md)" scopes write access to just this one
+    # file, so claude -p can actually create it instead of stopping to ask
+    # for permission (which, in a non-interactive -p run, it can't get -
+    # it would otherwise print a conversational "may I write this?" and
+    # never create the file). Output is captured, not streamed, and only
+    # shown if CLAUDE.md doesn't actually exist afterward.
+    CLAUDE_MD_LOG="$(mktemp)"
+    claude -p "$(cat "$PROMPT_FILE")" --allowedTools "Edit(CLAUDE.md)" >"$CLAUDE_MD_LOG" 2>&1
+    if [ -f "$REPO_ROOT/CLAUDE.md" ]; then
+      ok "CLAUDE.md generated - review it"
+    else
+      warn "claude -p didn't create CLAUDE.md - see below, or use the prompt instead"
+      cat "$CLAUDE_MD_LOG"
+      show_prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
+    fi
+    rm -f "$CLAUDE_MD_LOG"
   else
     warn "claude CLI not found on PATH - here's the prompt instead"
     show_prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
@@ -258,5 +272,8 @@ fi
 SUMMARY="$SUMMARY
 Run scripts/verify-env.sh anytime to recheck what's installed."
 
-if [ -n "$GUM" ]; then "$GUM" style --foreground 212 "$SUMMARY"
-else echo "$SUMMARY"; fi
+# Yellow (matches warn()'s color), deliberately not 212 like the step
+# headers above - this is the "you still need to do something" list, so
+# it should read as attention-needed, not blend in as just another step.
+if [ -n "$GUM" ]; then "$GUM" style --foreground 3 "$SUMMARY"
+else printf '\033[33m%s\033[0m\n' "$SUMMARY"; fi
