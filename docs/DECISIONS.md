@@ -355,6 +355,36 @@ Re-ran `setup.sh` end-to-end afterward (piping `n` to the CLAUDE.md
 prompt) to confirm the trimmed styling still renders correctly and nothing
 regressed in the confirm/spin/summary flow.
 
+## Codegraph install output hidden, and a post-install index/sync prompt added
+
+`codegraph install --target claude --location global -y` ran unwrapped in
+both scripts, so its own fancy status box (its own terminal UI library,
+not gum) printed straight to the terminal every run - including, in
+practice, a couple of duplicated "Claude Code: Unchanged ~/.claude/..."
+lines, which is codegraph's own output, not something under this repo's
+control. Wrapped it in the existing `spin`/`Invoke-Spin` helper (same
+treatment already given to codegraph's install-from-scratch curl step,
+Firecrawl bring-up, etc.) so it's hidden unless it fails, replaced by our
+own one-line "registered" confirmation.
+
+Also replaced codegraph's printed "Next: index a project" hint - which
+just prints generic instructions regardless of this repo's state - with
+an actual interactive step: if `.codegraph/` doesn't exist yet, ask (via
+the same gum-confirm/plain-read pattern as the CLAUDE.md step) whether to
+run `codegraph init` now; if it already exists, offer `codegraph sync`
+instead. A non-interactive terminal gets the command printed instead of
+being asked (same convention as the CLAUDE.md step). Extracted a shared
+`confirm()` (bash) helper for this since `setup.sh`'s CLAUDE.md step had
+been inlining the identical gum-confirm/read-fallback logic; `setup.ps1`
+already had this as `Confirm-Gum`, reused as-is.
+
+Verified live: a full `setup.sh` run against a scratch copy of the repo
+(never the real repo, since `codegraph init` writes `.codegraph/` into
+whatever directory it's run from) confirmed no duplicated/box output
+before the "registered" line, correct switching between the `init` and
+`sync` prompts based on whether `.codegraph/` already existed, and that
+declining either one leaves the directory untouched.
+
 ## Repo: private
 
 The repo stores MCP server topology and setup scripts referencing personal

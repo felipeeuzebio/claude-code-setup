@@ -72,6 +72,19 @@ spin() {
     echo "  ... $title"; "$@"
   fi
 }
+# Asks a y/n question via gum (or a plain read as fallback); returns 0 for
+# yes, 1 for no. Quits the whole setup (not just this step) on Ctrl+C.
+confirm() {
+  if [ -n "$GUM" ]; then
+    "$GUM" confirm "$1"; local rc=$?
+    [ "$rc" -eq 130 ] && quit_setup
+    return "$rc"
+  else
+    local reply
+    read -r -p "  $1 [y/N] " reply
+    [[ "$reply" =~ ^[Yy]$ ]]
+  fi
+}
 
 step "Checking required tools"
 command -v node >/dev/null || { echo "node is required - install it first (https://nodejs.org)"; exit 1; }
@@ -105,8 +118,24 @@ if ! command -v codegraph >/dev/null; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 if command -v codegraph >/dev/null; then
-  codegraph install --target claude --location global -y
+  # codegraph's own installer prints a multi-line status box (its own
+  # terminal UI, not ours) - spin hides it and only surfaces it on failure.
+  spin "Registering codegraph in Claude Code..." codegraph install --target claude --location global -y
   ok "codegraph $(codegraph version 2>/dev/null || echo installed) registered in Claude Code"
+
+  if [ -d "$REPO_ROOT/.codegraph" ]; then
+    CG_ACTION=sync; CG_PROMPT="Sync codegraph's index for this repo now (codegraph sync)?"; CG_SKIP_MSG="not synced"
+  else
+    CG_ACTION=init; CG_PROMPT="Index this repo with codegraph now (codegraph init)?"; CG_SKIP_MSG="not indexed"
+  fi
+  if [ ! -t 0 ]; then
+    echo "  Run 'codegraph $CG_ACTION' in this repo (or any project) whenever you want to build/refresh its index."
+  elif confirm "$CG_PROMPT"; then
+    spin "Running codegraph $CG_ACTION..." codegraph "$CG_ACTION"
+    ok "codegraph $CG_ACTION complete"
+  else
+    skip "$CG_SKIP_MSG - run 'codegraph $CG_ACTION' in this repo anytime"
+  fi
 else
   warn "codegraph install failed - skipping registration"
 fi
@@ -162,21 +191,16 @@ if [ -f "$REPO_ROOT/CLAUDE.md" ]; then
   skip "CLAUDE.md already exists - not touching it"
 elif [ ! -t 0 ]; then
   show_prompt "Not an interactive terminal - here's the prompt, paste it into any Claude Code session when you're ready:"
-else
-  if [ -n "$GUM" ]; then
-    "$GUM" confirm "Initialize CLAUDE.md for this repo now with Claude Code?"; CONFIRMED=$?
-    [ "$CONFIRMED" -eq 130 ] && quit_setup
-  else
-    read -r -p "  Initialize CLAUDE.md for this repo now with Claude Code? [y/N] " REPLY
-    [[ "$REPLY" =~ ^[Yy]$ ]]; CONFIRMED=$?
-  fi
-  if [ "$CONFIRMED" -eq 0 ] && command -v claude >/dev/null; then
+elif confirm "Initialize CLAUDE.md for this repo now with Claude Code?"; then
+  if command -v claude >/dev/null; then
     claude -p "$(cat "$PROMPT_FILE")"
     ok "CLAUDE.md generated - review it"
   else
-    [ "$CONFIRMED" -eq 0 ] && warn "claude CLI not found on PATH - here's the prompt instead"
+    warn "claude CLI not found on PATH - here's the prompt instead"
     show_prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
   fi
+else
+  show_prompt "Copy this into any Claude Code session (here or another project) whenever you want to generate a CLAUDE.md:"
 fi
 
 step "Registering MCP servers into ~/.claude.json"

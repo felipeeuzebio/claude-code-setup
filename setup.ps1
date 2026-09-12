@@ -103,8 +103,25 @@ if (-not (Get-Command codegraph -ErrorAction SilentlyContinue)) {
     Invoke-Spin "Installing codegraph..." "pwsh" @("-NoProfile", "-Command", "irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex")
 }
 if (Get-Command codegraph -ErrorAction SilentlyContinue) {
-    codegraph install --target claude --location global -y
+    # codegraph's own installer prints a multi-line status box (its own
+    # terminal UI, not ours) - the spinner hides it and only surfaces it on failure.
+    Invoke-Spin "Registering codegraph in Claude Code..." "codegraph" @("install", "--target", "claude", "--location", "global", "-y")
     Ok "codegraph registered in Claude Code"
+
+    $codegraphDir = Join-Path $RepoRoot ".codegraph"
+    if (Test-Path $codegraphDir) {
+        $cgAction = "sync"; $cgPrompt = "Sync codegraph's index for this repo now (codegraph sync)?"; $cgSkipMsg = "not synced"
+    } else {
+        $cgAction = "init"; $cgPrompt = "Index this repo with codegraph now (codegraph init)?"; $cgSkipMsg = "not indexed"
+    }
+    if ([Console]::IsInputRedirected) {
+        Write-Host "  Run 'codegraph $cgAction' in this repo (or any project) whenever you want to build/refresh its index."
+    } elseif (Confirm-Gum $cgPrompt) {
+        Invoke-Spin "Running codegraph $cgAction..." "codegraph" @($cgAction)
+        Ok "codegraph $cgAction complete"
+    } else {
+        Skip "$cgSkipMsg - run 'codegraph $cgAction' in this repo anytime"
+    }
 } else {
     Warn "codegraph install failed - skipping registration"
 }
