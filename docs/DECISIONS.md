@@ -226,6 +226,25 @@ writing), so `setup.ps1` skips it outright rather than half-installing;
 the full stack including Lightpanda needs `setup.sh` under WSL2 on
 Windows machines.
 
+**Addendum: `setup.sh`'s own `.env` loader was the thing corrupting
+paths, found via a real bug report.** It used to `source .env` directly
+(with `set -a`/`set +a` around it) - but `source` runs `.env` as actual
+bash, not a plain key/value reader. An unquoted value containing a space,
+like a real-world Windows-style `OBSIDIAN_VAULT_PATH=C:\Users\you\Documents\My Vault`,
+gets word-split: bash treats `Vault` as a second word after the
+assignment and tries to run it as a command ("Vault: command not
+found"), and because that's the `VAR=value command` form, the assignment
+doesn't even persist to the rest of the script - so the variable ends up
+unset, not just malformed. Unquoted backslashes are also interpreted as
+shell escapes and silently stripped. `setup.sh` now reads `.env`
+line-by-line with plain string ops (`${line%%=*}` / `${line#*=}`) and
+`export`s each key directly, never evaluating the value as shell code -
+spaces and backslashes survive intact with no quoting required (quoted
+values still work too; surrounding quotes are stripped). `setup.ps1`
+never had this bug - `Get-Content`/`.Split('=')` there is plain text
+splitting, not code execution, so it never interpreted backslashes or
+word-split on spaces to begin with.
+
 ## CLAUDE.md init: an interactive setup-time ask, not an installed command
 
 First pass at this made `/init-claude-md` a slash command installed into

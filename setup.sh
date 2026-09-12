@@ -12,11 +12,25 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 
+# Parsed line-by-line rather than `source`d: sourcing runs .env as real
+# bash, so an unquoted value with a space (e.g. a Windows-style
+# OBSIDIAN_VAULT_PATH like "C:\Users\you\Documents\My Vault") gets
+# word-split and the trailing word executed as a command, and backslashes
+# get interpreted as escapes - both silently corrupt the value. Reading it
+# as plain text keeps spaces and backslashes literal with no quoting needed.
 if [ -f .env ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="${key//[[:space:]]/}"
+    if [[ ("$value" == \"*\" && "$value" == *\") || ("$value" == \'*\' && "$value" == *\') ]]; then
+      value="${value:1:-1}"
+    fi
+    export "$key=$value"
+  done < .env
 fi
 
 # gum is cosmetic only - if it can't be found or downloaded, everything
