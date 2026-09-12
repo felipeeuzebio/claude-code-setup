@@ -32,6 +32,21 @@ function Step($msg) {
     else { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 }
 function Ok($msg)   { if ($Gum) { "  + $msg" | & $Gum style --foreground 2 } else { Write-Host "  ok   $msg" } }
+# Like Ok, but the version string after $label prints dimmed/gray so the
+# tool name (what matters at a glance) stands out from its version noise.
+# Colors need forcing here: capturing gum's output into a variable hands it
+# a pipe instead of the real console, so its own TTY check would otherwise
+# think color is unsupported and silently print plain text for both halves.
+function Ok-Ver($label, $ver) {
+    if ($Gum) {
+        $prevForce = $env:CLICOLOR_FORCE
+        $env:CLICOLOR_FORCE = if ([Console]::IsOutputRedirected) { "" } else { "1" }
+        $head = "  + $label " | & $Gum style --foreground 2
+        $tail = "$ver" | & $Gum style --foreground 8
+        $env:CLICOLOR_FORCE = $prevForce
+        Write-Host "$head$tail"
+    } else { Write-Host "  ok   $label $ver" }
+}
 function Skip($msg) { if ($Gum) { "  - $msg" | & $Gum style --foreground 8 } else { Write-Host "  skip $msg" } }
 function Warn($msg) { if ($Gum) { "  ! $msg" | & $Gum style --foreground 3 } else { Write-Host "  warn $msg" -ForegroundColor Yellow } }
 # gum's TUI runs the console in raw mode, so Ctrl+C there is a keystroke
@@ -93,11 +108,13 @@ if (-not $python) {
     Write-Error "python3 is required for scripts\merge-mcp-config.py - install it first (https://python.org)"
     exit 1
 }
-Ok "node $(node --version), npx $(npx --version), $python $(& $python --version)"
+Ok-Ver "node" (node --version)
+Ok-Ver "npx" (npx --version)
+Ok-Ver $python (& $python --version)
 
 $hasDocker = $false
 if (Get-Command docker -ErrorAction SilentlyContinue) {
-    try { docker info | Out-Null; $hasDocker = $true; Ok "docker $(docker --version)" }
+    try { docker info | Out-Null; $hasDocker = $true; Ok-Ver "docker" (docker --version) }
     catch { Warn "docker found but not running - start Docker Desktop" }
 } else {
     Warn "docker not available - Firecrawl self-host will be skipped"
@@ -106,7 +123,7 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
 $env:HAS_UVX = "false"
 if (Get-Command uvx -ErrorAction SilentlyContinue) {
     $env:HAS_UVX = "true"
-    Ok "uvx $(uvx --version)"
+    Ok-Ver "uvx" (uvx --version)
 } else {
     Warn "uvx not available - browser-use (self-hosted) will be skipped (install: https://docs.astral.sh/uv/)"
 }
@@ -140,8 +157,21 @@ if (Get-Command codegraph -ErrorAction SilentlyContinue) {
 }
 
 Step "Set up browser-use (self-hosted, Claude-driven browser control)"
+$env:BROWSER_USE_READY = "false"
 if ($env:HAS_UVX -eq "true") {
-    Ok "Will register (see summary below for the one-time Chromium install)"
+    if ([Console]::IsInputRedirected) {
+        Ok "Will register (see summary below for the one-time Chromium install)"
+    } elseif (Confirm-Gum "Install browser-use's Chromium now (uvx browser-use[cli] install)?") {
+        & uvx --python 3.12 browser-use[cli] install
+        if ($LASTEXITCODE -eq 0) {
+            Ok "browser-use Chromium installed"
+            $env:BROWSER_USE_READY = "true"
+        } else {
+            Warn "browser-use Chromium install failed - run 'uvx --python 3.12 browser-use[cli] install' manually later"
+        }
+    } else {
+        Ok "Will register (see summary below for the one-time Chromium install)"
+    }
 } else {
     Skip "uvx not available"
 }
@@ -227,27 +257,49 @@ $summaryLines = @(
     "1. Open http://localhost:8080, finish Bifrost onboarding, generate a virtual key.",
     "   claude mcp add --transport http bifrost http://localhost:8080/mcp --header `"Authorization: Bearer <key>`" --scope user",
     "2. In the Bifrost UI, add downstream servers you'd rather gateway than run direct",
-    "   (command/args/env are in mcp/mcp-servers.json)."
+    "   (command/args/env are in mcp/mcp-servers.json).",
+    "",
+    "Run scripts\verify-env.ps1 anytime to recheck what's installed."
 )
-if (-not ($env:GITHUB_TOKEN -or $env:GITHUB_PERSONAL_ACCESS_TOKEN)) { $summaryLines += "- Set GITHUB_TOKEN and re-run to register the GitHub MCP server." }
-if ($env:HAS_UVX -eq "true") {
-    $summaryLines += "- Run 'uvx --python 3.12 browser-use[cli] install' once before first using the browser-use MCP (installs Chromium)."
-} else {
-    $summaryLines += "- Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server."
-}
-if (-not $env:OBSIDIAN_VAULT_PATH) {
-    $summaryLines += "- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."
-} elseif (-not (Test-Path -LiteralPath $env:OBSIDIAN_VAULT_PATH -PathType Container)) {
-    $summaryLines += "- OBSIDIAN_VAULT_PATH ($($env:OBSIDIAN_VAULT_PATH)) is not an existing directory - fix it and re-run to register the Obsidian (librarian-mcp) server."
-}
-$summaryLines += "Run scripts\verify-env.ps1 anytime to recheck what's installed."
 $summary = $summaryLines -join "`n"
 
-# Yellow (matches Warn's color), deliberately not 212 like the step
-# headers above - this is the "you still need to do something" list, so
-# it should read as attention-needed, not blend in as just another step.
-if ($Gum) { $summary | & $Gum style --foreground 3 }
-else { Write-Host $summary -ForegroundColor Yellow }
+# Blue - a plain to-do list, distinct from the warnings/issues list below.
+if ($Gum) { $summary | & $Gum style --foreground 4 }
+else { Write-Host $summary -ForegroundColor Blue }
+
+# Warnings: not yet configured, but not wrong - just incomplete.
+$warningLines = @()
+if (-not ($env:GITHUB_TOKEN -or $env:GITHUB_PERSONAL_ACCESS_TOKEN)) { $warningLines += "- Set GITHUB_TOKEN and re-run to register the GitHub MCP server." }
+if ($env:HAS_UVX -eq "true" -and $env:BROWSER_USE_READY -ne "true") {
+    $warningLines += "- Run 'uvx --python 3.12 browser-use[cli] install' once before first using the browser-use MCP (installs Chromium)."
+} elseif ($env:HAS_UVX -ne "true") {
+    $warningLines += "- Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server."
+}
+if (-not $env:OBSIDIAN_VAULT_PATH) {
+    $warningLines += "- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."
+}
+
+# Issues: actively misconfigured - something was set, but it's wrong.
+$issueLines = @()
+if ($env:OBSIDIAN_VAULT_PATH -and -not (Test-Path -LiteralPath $env:OBSIDIAN_VAULT_PATH -PathType Container)) {
+    $issueLines += "- OBSIDIAN_VAULT_PATH ($($env:OBSIDIAN_VAULT_PATH)) is not an existing directory - fix it and re-run to register the Obsidian (librarian-mcp) server."
+}
+
+if ($issueLines.Count -gt 0 -or $warningLines.Count -gt 0) {
+    Step "Warnings & issues"
+    if ($issueLines.Count -gt 0) {
+        $issues = $issueLines -join "`n"
+        if ($Gum) { $issues | & $Gum style --foreground 1 }
+        else { Write-Host $issues -ForegroundColor Red }
+    }
+    if ($warningLines.Count -gt 0) {
+        $warnings = $warningLines -join "`n"
+        # Yellow (matches Warn's color) - this is the "you still need to do
+        # something" list, so it should read as attention-needed, not blend in.
+        if ($Gum) { $warnings | & $Gum style --foreground 3 }
+        else { Write-Host $warnings -ForegroundColor Yellow }
+    }
+}
 
 } finally {
     if ($GumTmpDir) { Remove-Item -Recurse -Force $GumTmpDir -ErrorAction SilentlyContinue }

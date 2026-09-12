@@ -43,18 +43,35 @@ source "$REPO_ROOT/scripts/ensure-gum.sh"
 [ -n "$GUM_TMP_DIR" ] && trap 'rm -rf "$GUM_TMP_DIR"' EXIT
 
 step() {
-  if [ -n "$GUM" ]; then echo; "$GUM" style --foreground 212 "==> $1"
+  if [ -n "$GUM" ]; then echo; "$GUM" style --foreground 212 -- "==> $1"
   else printf '\n\033[1m==> %s\033[0m\n' "$1"; fi
 }
-ok()   { if [ -n "$GUM" ]; then "$GUM" style --foreground 2 "  ✓ $1";   else printf '  ok   %s\n' "$1"; fi; }
-skip() { if [ -n "$GUM" ]; then "$GUM" style --foreground 8 "  - $1";   else printf '  skip %s\n' "$1"; fi; }
-warn() { if [ -n "$GUM" ]; then "$GUM" style --foreground 3 "  ! $1" >&2; else printf '  warn %s\n' "$1" >&2; fi; }
+ok()   { if [ -n "$GUM" ]; then "$GUM" style --foreground 2 -- "  ✓ $1";   else printf '  ok   %s\n' "$1"; fi; }
+skip() { if [ -n "$GUM" ]; then "$GUM" style --foreground 8 -- "  - $1";   else printf '  skip %s\n' "$1"; fi; }
+warn() { if [ -n "$GUM" ]; then "$GUM" style --foreground 3 -- "  ! $1" >&2; else printf '  warn %s\n' "$1" >&2; fi; }
+# Like ok(), but the version string after $label prints dimmed/gray so the
+# tool name (what matters at a glance) stands out from its version noise.
+# Colors need forcing here: capturing gum's output via $(...) hands it a
+# pipe instead of our real stdout, so its own TTY check would otherwise
+# think color is unsupported and silently print plain text for both halves.
+ok_ver() {
+  local label="$1" ver="$2"
+  if [ -n "$GUM" ]; then
+    local head tail force=""
+    [ -t 1 ] && force=1
+    head="$(CLICOLOR_FORCE="$force" "$GUM" style --foreground 2 -- "  ✓ $label ")"
+    tail="$(CLICOLOR_FORCE="$force" "$GUM" style --foreground 8 -- "$ver")"
+    printf '%s%s\n' "$head" "$tail"
+  else
+    printf '  ok   %s %s\n' "$label" "$ver"
+  fi
+}
 # gum's TUI runs the terminal in raw mode, so Ctrl+C there is a keystroke
 # gum interprets itself (exit 130), not a signal that would stop this
 # script - so every gum confirm/spin call is checked for it explicitly.
 quit_setup() {
   echo
-  if [ -n "$GUM" ]; then "$GUM" style --foreground 1 "Setup cancelled."
+  if [ -n "$GUM" ]; then "$GUM" style --foreground 1 -- "Setup cancelled."
   else echo "Setup cancelled."; fi
   exit 130
 }
@@ -76,7 +93,7 @@ spin() {
 # yes, 1 for no. Quits the whole setup (not just this step) on Ctrl+C.
 confirm() {
   if [ -n "$GUM" ]; then
-    "$GUM" confirm "$1"; local rc=$?
+    "$GUM" confirm -- "$1"; local rc=$?
     [ "$rc" -eq 130 ] && quit_setup
     return "$rc"
   else
@@ -98,12 +115,14 @@ step "Checking required tools"
 command -v node >/dev/null || { echo "node is required - install it first (https://nodejs.org)"; exit 1; }
 command -v npx  >/dev/null || { echo "npx is required (ships with node >=8.2)"; exit 1; }
 command -v python3 >/dev/null || { echo "python3 is required for scripts/merge-mcp-config.py"; exit 1; }
-ok "node $(node --version), npx $(npx --version), $(python3 --version)"
+ok_ver "node" "$(node --version)"
+ok_ver "npx" "$(npx --version)"
+ok_ver "python3" "$(python3 --version)"
 
 HAS_DOCKER=false
 if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
   HAS_DOCKER=true
-  ok "docker $(docker --version | cut -d, -f1)"
+  ok_ver "docker" "$(docker --version | cut -d, -f1)"
 else
   warn "docker not available - Firecrawl self-host will be skipped (see docs/DECISIONS.md)"
 fi
@@ -111,7 +130,7 @@ fi
 export HAS_UVX=false
 if command -v uvx >/dev/null; then
   export HAS_UVX=true
-  ok "uvx $(uvx --version)"
+  ok_ver "uvx" "$(uvx --version)"
 else
   warn "uvx not available - browser-use (self-hosted) will be skipped (install: https://docs.astral.sh/uv/)"
 fi
@@ -149,8 +168,23 @@ else
 fi
 
 step "browser-use (self-hosted, Claude-driven browser control)"
+export BROWSER_USE_READY=false
 if [ "$HAS_UVX" = true ]; then
-  ok "Will register (see summary below for the one-time Chromium install)"
+  if [ ! -t 0 ]; then
+    ok "Will register (see summary below for the one-time Chromium install)"
+  elif confirm "Install browser-use's Chromium now (uvx browser-use[cli] install)? May prompt for your sudo password - not hidden behind a spinner, so watch for it."; then
+    # Run directly, not through spin(): the underlying "playwright install
+    # --with-deps" shells out to sudo apt-get on Linux, and a spinner would
+    # hide that password prompt and hang the whole script silently.
+    if uvx --python 3.12 browser-use[cli] install; then
+      ok "browser-use Chromium installed"
+      export BROWSER_USE_READY=true
+    else
+      warn "browser-use Chromium install failed - run 'uvx --python 3.12 browser-use[cli] install' manually later"
+    fi
+  else
+    ok "Will register (see summary below for the one-time Chromium install)"
+  fi
 else
   skip "uvx not available"
 fi
@@ -252,28 +286,45 @@ step "Summary - what's left for you"
 SUMMARY="1. Open http://localhost:8080, finish Bifrost onboarding, generate a virtual key.
    claude mcp add --transport http bifrost http://localhost:8080/mcp --header \"Authorization: Bearer <key>\" --scope user
 2. In the Bifrost UI, add downstream servers you'd rather gateway than run direct
-   (command/args/env are in mcp/mcp-servers.json)."
-[ -n "${GITHUB_TOKEN:-}${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ] || SUMMARY="$SUMMARY
-- Set GITHUB_TOKEN and re-run to register the GitHub MCP server."
-if [ "$HAS_UVX" = true ]; then
-  SUMMARY="$SUMMARY
-- Run 'uvx --python 3.12 browser-use[cli] install' once before first using the browser-use MCP (installs Chromium, may prompt for sudo on Linux)."
-else
-  SUMMARY="$SUMMARY
-- Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server."
-fi
-if [ -z "${OBSIDIAN_VAULT_PATH:-}" ]; then
-  SUMMARY="$SUMMARY
-- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."
-elif [ ! -d "$OBSIDIAN_VAULT_PATH" ]; then
-  SUMMARY="$SUMMARY
-- OBSIDIAN_VAULT_PATH ($OBSIDIAN_VAULT_PATH) is not an existing directory - fix it and re-run to register the Obsidian (librarian-mcp) server."
-fi
-SUMMARY="$SUMMARY
+   (command/args/env are in mcp/mcp-servers.json).
+
 Run scripts/verify-env.sh anytime to recheck what's installed."
 
-# Yellow (matches warn()'s color), deliberately not 212 like the step
-# headers above - this is the "you still need to do something" list, so
-# it should read as attention-needed, not blend in as just another step.
-if [ -n "$GUM" ]; then "$GUM" style --foreground 3 "$SUMMARY"
-else printf '\033[33m%s\033[0m\n' "$SUMMARY"; fi
+# Blue - a plain to-do list, distinct from the warnings/issues list below.
+if [ -n "$GUM" ]; then "$GUM" style --foreground 4 -- "$SUMMARY"
+else printf '\033[34m%s\033[0m\n' "$SUMMARY"; fi
+
+# Warnings: not yet configured, but not wrong - just incomplete.
+WARNINGS=""
+[ -n "${GITHUB_TOKEN:-}${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ] || WARNINGS="$WARNINGS
+- Set GITHUB_TOKEN and re-run to register the GitHub MCP server."
+if [ "$HAS_UVX" = true ] && [ "$BROWSER_USE_READY" != true ]; then
+  WARNINGS="$WARNINGS
+- Run 'uvx --python 3.12 browser-use[cli] install' once before first using the browser-use MCP (installs Chromium, may prompt for sudo on Linux)."
+elif [ "$HAS_UVX" != true ]; then
+  WARNINGS="$WARNINGS
+- Install uv/uvx (https://docs.astral.sh/uv/) and re-run to enable the browser-use MCP server."
+fi
+[ -n "${OBSIDIAN_VAULT_PATH:-}" ] || WARNINGS="$WARNINGS
+- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian (librarian-mcp) server."
+
+# Issues: actively misconfigured - something was set, but it's wrong.
+ISSUES=""
+if [ -n "${OBSIDIAN_VAULT_PATH:-}" ] && [ ! -d "$OBSIDIAN_VAULT_PATH" ]; then
+  ISSUES="$ISSUES
+- OBSIDIAN_VAULT_PATH ($OBSIDIAN_VAULT_PATH) is not an existing directory - fix it and re-run to register the Obsidian (librarian-mcp) server."
+fi
+
+if [ -n "$WARNINGS" ] || [ -n "$ISSUES" ]; then
+  step "Warnings & issues"
+  if [ -n "$ISSUES" ]; then
+    ISSUES="${ISSUES#$'\n'}"
+    if [ -n "$GUM" ]; then "$GUM" style --foreground 1 -- "$ISSUES"
+    else printf '\033[31m%s\033[0m\n' "$ISSUES"; fi
+  fi
+  if [ -n "$WARNINGS" ]; then
+    WARNINGS="${WARNINGS#$'\n'}"
+    if [ -n "$GUM" ]; then "$GUM" style --foreground 3 -- "$WARNINGS"
+    else printf '\033[33m%s\033[0m\n' "$WARNINGS"; fi
+  fi
+fi
