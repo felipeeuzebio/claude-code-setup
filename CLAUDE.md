@@ -1,56 +1,63 @@
 # claude-code-setup
 
-Personal Claude Code environment configuration: an MCP gateway (Bifrost), a curated set of MCP servers, and a reusable language-agnostic `CLAUDE.md` starter template. Not an application — a collection of shell/PowerShell setup scripts and config templates for bootstrapping a Claude Code environment on a new machine.
+Personal Claude Code environment configuration: an MCP gateway (Bifrost), a curated set of MCP servers, and a reusable language-agnostic `CLAUDE.md` starter template. Not an application in the usual sense — a `uv`-managed Python package (`src/setup/`) that bootstraps a Claude Code environment on a new machine, invoked through two thin shell/PowerShell wrapper scripts.
 
 ## Stack
 
-- Bash (`setup.sh`, `githooks/commit-msg`, `scripts/*.sh`) for Linux/WSL2/macOS
-- PowerShell (`setup.ps1`, `scripts/*.ps1`) for native Windows
-- Python (`scripts/merge-mcp-config.py`) for JSON config merging
+- Python, run via `uv` (`uv run setup`) — no separate Python install needed, `uv` manages the interpreter
+- `rich` is the one runtime dependency (styled terminal output); `pytest` + `pytest-xdist` are dev-only
+- Bash (`setup.sh`, `githooks/commit-msg`) for Linux/WSL2/macOS — both are thin, `githooks/commit-msg` is a standalone hook unrelated to the Python package
+- PowerShell (`setup.ps1`) for native Windows — same thin-wrapper shape
 - Docker Compose for self-hosted Firecrawl
-- No package manager / lockfile — this repo has no application runtime of its own
+- `pyproject.toml` + `uv.lock` — no other build step; this package is never published or installed elsewhere, only run in-place via `uv run`
 
 ## Structure
 
-- `setup.sh` / `setup.ps1` - one-shot environment setup, idempotent, platform-specific entry points
+- `setup.sh` / `setup.ps1` - thin wrappers: check `uv` is present, `exec uv run setup`
+- `src/setup/` - the actual logic, a `uv`-managed packaged app:
+  - `__init__.py` - orchestration spine (`main()`), what `uv run setup` (a `[project.scripts]` entry) calls
+  - `mcptest` lives in `tests/`, not here - it's test code, not part of the shipped tool
+  - everything else (`ui.py`, `envfile.py`, `mcpservers.py`, `mcpconfig.py`, `sysinfo.py`, `firecrawl.py`, `claudemd.py`, `bifrost.py`) is internal-only: plain functions `__init__.py` imports, no standalone entry point
+- `tests/` - `pytest` suite (`uv run pytest`): `test_envfile.py`/`test_mcpconfig.py` are fast fixture-based unit tests; `test_mcp_servers.py` + `conftest.py` are the live MCP integration suite, marked `integration` (`uv run pytest -m "not integration"` skips it)
 - `mcp-servers.json` (root) - standalone MCP server definitions (GitHub, Context7, Firecrawl, Obsidian/librarian-mcp, browser-use, Lightpanda's native MCP server, Codegraph)
-- `.env.example` - secrets/flags `setup.sh`/`setup.ps1` read, plus self-hosted Firecrawl's own docker-compose env (copied as-is into that checkout by `scripts/setup-firecrawl.sh`)
-- `CLAUDE_TEMPLATE.md` (root) - reusable `CLAUDE.md`-generation prompt, starter structure embedded, that setup.sh offers to run via `claude -p`
-- `scripts/` - installer/merge helpers used by `setup.sh`/`setup.ps1`: `ensure-gum.{sh,ps1}`, `merge-mcp-config.py`, `setup-firecrawl.{sh,ps1}`, `verify-env.{sh,ps1}`, `test-mcp.py`
-- `githooks/commit-msg` - Conventional Commits enforcement hook, wired via `git config core.hooksPath githooks`
+- `.env.example` - secrets/flags `setup` reads, plus self-hosted Firecrawl's own docker-compose env (copied as-is into that checkout)
+- `CLAUDE_TEMPLATE.md` (root) - reusable `CLAUDE.md`-generation prompt, starter structure embedded, that `setup` offers to run via `claude -p`
+- `githooks/commit-msg` - Conventional Commits enforcement hook (plain bash, out of scope of the Python package), wired via `git config core.hooksPath githooks`
 - `AGENTS.md` (root) - why things are configured the way they are; read before changing MCP server choices or script behavior
 
 ## Commands
 
 - Run setup (Linux/WSL2/macOS): `./setup.sh`
 - Run setup (native Windows): `./setup.ps1`
-- Verify local dependencies are on PATH: `./scripts/verify-env.sh` (or `.ps1` on Windows)
-- Verify the registered MCP servers actually answer: `python3 scripts/test-mcp.py` (`--list`, `--filter NAME`, `--jobs N`); drives a real `claude -p` session per server, so it costs tokens and takes a few minutes
-- Bring up self-hosted Firecrawl only: `./scripts/setup-firecrawl.sh`
-- No build step and no linter — there is no application code to compile. `scripts/test-mcp.py` is an integration suite against live MCP servers, not a unit-test suite
+- Run the whole test suite (fast unit tests + live MCP integration suite): `uv run pytest`
+- Fast subset only (no network, no tokens spent): `uv run pytest -m "not integration"`
+- Just the MCP integration suite: `uv run pytest -m integration` (or `-k <name>` for one case; `-n N` for concurrency via `pytest-xdist`; `--model`/`--mcp-timeout` to override defaults; `--collect-only -q` to list cases)
+- There's no standalone "just verify tools" or "just re-merge config" command any more - re-run `./setup.sh` (idempotent) instead
+- No build step and no linter configured yet — `pyproject.toml` has no `[project.scripts]` beyond `setup`, and nothing here is published or installed elsewhere
 
 ## Verification
 
-After changing a script in this repo:
+After changing anything in this repo:
 
-1. Shellcheck any modified `.sh` file: `shellcheck setup.sh scripts/*.sh githooks/commit-msg`
-2. Re-run the modified script end-to-end against a scratch copy of the repo when it touches installs or `~/.claude.json` — never against the real checkout, since e.g. `codegraph init` and MCP registration mutate real local state
-3. For `githooks/commit-msg` changes, hand-test both an accepting and a rejecting commit message before relying on it
-4. After changing `mcp-servers.json` or the merge logic, run `python3 scripts/test-mcp.py` — `verify-env.sh` only proves binaries exist, not that a registered server answers
-5. When adding a case to `scripts/test-mcp.py`, prove it can fail: point the server entry at a nonexistent binary and confirm it reports FAIL, not PASS. Several prompts are answerable from the model's own knowledge, so a case that never fails is testing nothing
+1. For changes under `src/setup/` or `tests/`: run `uv run pytest -m "not integration"` (fast) and, when touching MCP registration/test logic specifically, the full `uv run pytest` (costs tokens, drives real `claude -p` sessions)
+2. Re-run `./setup.sh`/`./setup.ps1` end-to-end against a scratch copy of the repo when a change touches installs or `~/.claude.json` — never against the real checkout, since e.g. `codegraph init` and MCP registration mutate real local state
+3. For `githooks/commit-msg` changes (a plain bash script, untouched by the Python rewrite), hand-test both an accepting and a rejecting commit message before relying on it
+4. When adding a case to `tests/test_mcp_servers.py`, prove it can fail: point the server entry at a nonexistent binary and confirm it reports FAIL, not PASS/SKIP. Several prompts are answerable from the model's own knowledge, so a case that never fails is testing nothing
 
 ## Conventions
 
 - Commit messages must pass `githooks/commit-msg`: `type: concise summary` (Conventional Commits: feat/fix/refactor/docs/test/chore/perf/ci, ≤72 chars), optional body where every line is a `- ` bullet or a `Token: value` trailer. This hook is enforced locally via `core.hooksPath githooks`, set up by `setup.sh`/`setup.ps1`.
-- `.env` (gitignored, copy from `.env.example`) is read by `setup.sh` line-by-line as plain key/value pairs, never `source`d — preserves spaces/backslashes in values like Windows paths and avoids executing `.env` content as shell code.
+- `.env` (gitignored, copy from `.env.example`) is read by `src/setup/envfile.py` line-by-line as plain key/value pairs, never evaluated as shell/Python — preserves spaces/backslashes in values like Windows paths.
 - MCP servers are only written into `~/.claude.json` once their required secret/path is actually present and valid (e.g. `OBSIDIAN_VAULT_PATH` must be a real directory) — a placeholder or invalid entry is worse than a server that's just not registered yet; missing pieces are listed at the end of the run instead.
-- gum (styled terminal output) is strictly cosmetic and never a hard dependency — if missing, it's downloaded to a temp dir for that run only and every gum call has a plain-`printf`/`Write-Host` fallback.
-- Setup scripts are idempotent — safe to re-run after adding one more secret to `.env`.
+- Terminal output goes through `src/setup/ui.py` (built on `rich`) — colored ok/skip/warn/step lines, a spinner, a y/n confirm, Markdown rendering. No external binary (gum was dropped entirely during the Python rewrite).
+- Setup is idempotent — safe to re-run `./setup.sh`/`.ps1` after adding one more secret to `.env`; it's also the only way to re-check tool status or re-merge MCP config now (no separate standalone commands for those).
 - For the reasoning behind specific tool/server choices (Bifrost vs. alternatives, Codegraph vs. Graphify, librarian-mcp vs. mcp-obsidian, browser-use's `--cli-mcp` mode, etc.), see `AGENTS.md` before changing them — several were arrived at after ruling out non-obvious failure modes.
 
 ## Don't
 
-- Don't `source .env` or otherwise eval its contents as shell — read it as plain text (see the `.env` convention above); this previously corrupted Windows-style paths containing spaces/backslashes.
+- Don't parse `.env` as shell or Python source — read it as plain text (see the `.env` convention above); an earlier bash version that `source`d it corrupted Windows-style paths containing spaces/backslashes.
 - Don't drop new git hooks into `.git/hooks/` directly — they won't be tracked or cloned; add them under `githooks/` instead so `core.hooksPath` picks them up.
 - Don't write an MCP server entry into a config with a placeholder/missing secret — skip it and surface the gap in the run summary instead.
-- Don't wrap install/status commands in the `spin`/`Invoke-Spin` helper if they might need interactive input (e.g. a sudo prompt) — the spinner hides output and will hang silently; print the command for the user to run manually instead.
+- Don't wrap install/status commands in `ui.spin()` if they might need interactive input (e.g. a sudo prompt) — the spinner would hide the prompt on a TTY; run those directly and let output flow through instead.
+- Don't add a standalone entry point for `sysinfo.py`, `firecrawl.py`, `mcpconfig.py`, `claudemd.py`, or `bifrost.py` — they're deliberately internal-only, called by `setup`'s `main()`. Only `setup` itself and the `tests/` suite are meant to be run directly.
+- Don't put dynamic/interpolated text straight into a `ui.console.print(...)` call without `rich.markup.escape()` — `Console.print` treats `[...]` as style markup by default, so literal brackets (e.g. `browser-use[cli]`) silently vanish otherwise. `ui.ok`/`warn`/`skip`/`step`/`ok_ver`/`confirm` already escape internally; only raw `ui.console.print()` calls need it explicitly.

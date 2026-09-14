@@ -6,14 +6,15 @@ set of MCP servers, and a reusable language-agnostic `CLAUDE.md` starter.
 ## Layout
 
 ```
-setup.sh              One-shot setup for Linux (native or WSL2) and macOS
-setup.ps1             One-shot setup for native Windows (Lightpanda needs WSL2 though)
+setup.sh              Thin wrapper: checks uv is present, execs `uv run setup`
+setup.ps1             Same, for native Windows (Lightpanda needs WSL2 though)
+src/setup/             The actual setup logic - a uv-managed Python package (see pyproject.toml)
+tests/                 pytest suite: fast unit tests + the live MCP integration suite (`uv run pytest`)
 .env.example          Secrets/flags setup.sh and setup.ps1 read, plus self-hosted Firecrawl's own env
 AGENTS.md              Why things are configured the way they are - read before changing MCP server choices or script behavior
 CLAUDE_TEMPLATE.md     The CLAUDE.md-generation prompt (starter structure embedded) setup.sh/setup.ps1 offer to run
 mcp-servers.json       Standalone MCP server definitions (works with or without Bifrost)
-scripts/               Installer/merge helpers used by setup.sh/setup.ps1, incl. self-hosted Firecrawl bring-up
-githooks/              commit-msg hook enforcing Conventional Commits (wired up by setup.sh/setup.ps1)
+githooks/              commit-msg hook enforcing Conventional Commits (wired up by setup.sh/setup.ps1) - plain bash, unrelated to the Python package
 ```
 
 ## MCP servers included
@@ -22,7 +23,7 @@ githooks/              commit-msg hook enforcing Conventional Commits (wired up 
 |---|---|---|
 | GitHub | repo/issue/PR operations | needs `GITHUB_PERSONAL_ACCESS_TOKEN` |
 | Context7 | live library docs lookup | no key required |
-| Firecrawl | web scraping/crawling | self-hosted via Docker Compose, see `scripts/setup-firecrawl.sh` |
+| Firecrawl | web scraping/crawling | self-hosted via Docker Compose, brought up as part of `./setup.sh`/`.ps1` |
 | Obsidian (librarian-mcp) | read/search/write your vault + graph analytics | reads the vault off disk, no Obsidian process needed |
 | browser-use | low-level browser control, Claude drives the steps | self-hosted via `uvx`, no API key needed |
 | Lightpanda | fast local browser engine, text/DOM-oriented tools | its own native MCP server (`lightpanda mcp`, stdio), no CDP wrapper |
@@ -39,14 +40,20 @@ cp .env.example .env   # fill in what you have; unset vars just get skipped
 ./setup.ps1
 ```
 
-Installs Codegraph, librarian-mcp, and (Linux/macOS only) Lightpanda;
-registers whichever MCP servers have their required secret/path set into
+Requires [`uv`](https://docs.astral.sh/uv/) - it manages the Python
+interpreter and dependencies for this project, so no separate Python
+install is needed. `uv run setup` (what the wrapper scripts call) installs
+Codegraph, librarian-mcp, and (Linux/macOS only) Lightpanda; registers
+whichever MCP servers have their required secret/path set into
 `~/.claude.json` (backing it up first); brings up self-hosted Firecrawl if
 Docker is available; and starts Bifrost. Idempotent - re-run anytime, e.g.
-after adding a secret to `.env`. Output uses
-[gum](https://github.com/charmbracelet/gum) if it's on your PATH, with a
-plain-text fallback otherwise - no dependency required either way. Ctrl+C
-at any point quits cleanly.
+after adding a secret to `.env` (there's no separate "just recheck" or
+"just re-merge config" command any more - re-running `./setup.sh` covers
+both). Ctrl+C at any point quits cleanly.
+
+Run the test suite (fast unit tests plus a live MCP integration suite)
+with `uv run pytest`; `uv run pytest -m "not integration"` skips the live,
+token-costing part for routine local work.
 
 It prints what's left for you to do by hand: generate a Bifrost virtual
 key and register any servers you'd rather gateway through it, both via the

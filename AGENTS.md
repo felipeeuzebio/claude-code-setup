@@ -23,7 +23,7 @@ in the distro, or Firecrawl Cloud, since Docker Desktop was already the
 assumed setup.
 
 Two bugs to know about if `docker compose up` misbehaves on first run,
-both worked around in `scripts/setup-firecrawl.sh` / the Firecrawl section
+both worked around in `src/setup/firecrawl.py` / the Firecrawl section
 of `.env.example`:
 
 - **RabbitMQ `EACCES` on `.erlang.cookie`** — a known
@@ -34,8 +34,8 @@ of `.env.example`:
   compose file brings up.
 
 Both are WSL2/Docker-Desktop-specific; native Linux with Docker Engine
-installed directly hits neither. `setup.sh`'s docker check and
-`scripts/setup-firecrawl.sh` are plain `docker compose` calls with no
+installed directly hits neither. `setup`'s docker check and
+`src/setup/firecrawl.py` are plain `docker compose` calls with no
 WSL-specific logic of their own.
 
 ## browser-use + Lightpanda: both, not either/or
@@ -151,13 +151,19 @@ on matters (Obsidian.app doesn't need to be running at all):
   access is noticeably slower than a native mount; worth knowing if
   running trigram search or graph analytics over a large vault repeatedly.
 
-## setup.sh/setup.ps1: skip rather than write broken entries
+## setup: skip rather than write broken entries
 
-Both scripts (and the `scripts/merge-mcp-config.py` they share) only add
-an MCP server to `~/.claude.json` once its required secret/path is
-present - a silently-broken MCP server is worse than one that's just not
-there yet. Missing pieces are listed at the end of the run instead, so
-re-running after adding one line to `.env` is the whole fix.
+**2026-09 update:** `setup.sh`/`setup.ps1` are now thin wrappers around a
+`uv`-managed Python package (`src/setup/`) - see `CLAUDE.md` for the
+current structure. The reasoning below still holds; only the file paths
+it names have moved.
+
+`setup`'s `mcpconfig.py` (called from `main()`, not a standalone script
+any more) only adds an MCP server to `~/.claude.json` once its required
+secret/path is present - a silently-broken MCP server is worse than one
+that's just not there yet. Missing pieces are listed at the end of the
+run instead, so re-running `./setup.sh`/`.ps1` after adding one line to
+`.env` is the whole fix.
 
 Two things this rule had to be tightened for:
 
@@ -166,20 +172,17 @@ Two things this rule had to be tightened for:
   handed to the WSL2/Linux `librarian-mcp` binary (which needs
   `/mnt/c/...` instead), used to pass a bare `bool(vault_path)` check and
   only fail later at Claude Code runtime as an opaque MCP connection
-  error. `build_plan()` in `scripts/merge-mcp-config.py` now checks
-  `Path(vault_path).is_dir()`; `setup.sh`/`setup.ps1` run the same check
-  inline so the warning shows up during the run itself. Lightpanda is
-  Linux/macOS-only, so `setup.ps1` skips it outright rather than
-  half-installing.
-- **`setup.sh`'s own `.env` loader used to corrupt paths with spaces.** It
-  `source`d `.env` directly, but `source` runs it as real bash: an
-  unquoted value with a space (a Windows-style
+  error. `build_plan()` in `src/setup/mcpconfig.py` checks
+  `Path(vault_path).is_dir()`. Lightpanda is Linux/macOS-only, so the
+  Windows path skips it outright rather than half-installing.
+- **The original bash `setup.sh`'s own `.env` loader used to corrupt paths
+  with spaces.** It `source`d `.env` directly, but `source` runs it as
+  real bash: an unquoted value with a space (a Windows-style
   `OBSIDIAN_VAULT_PATH=C:\Users\you\Documents\My Vault`) gets word-split,
   and backslashes get interpreted as shell escapes and silently stripped.
-  `setup.sh` now reads `.env` line-by-line with plain string ops
-  (`${line%%=*}` / `${line#*=}`) and `export`s each key directly, never
-  evaluating the value as shell code. `setup.ps1` never had this bug -
-  `Get-Content`/`.Split('=')` is plain text splitting, not code execution.
+  This is exactly why `src/setup/envfile.py` never evaluates `.env` as
+  shell/Python - it's a plain line-by-line parser that only strips one
+  matching layer of quotes, preserving everything else byte-for-byte.
 
 ## CLAUDE.md init: an interactive setup-time ask, not an installed command
 
@@ -202,19 +205,25 @@ permanently-installed command:
 - Saying yes runs `claude -p "$(cat CLAUDE_TEMPLATE.md)"` right there,
   since setup.sh/setup.ps1 already `cd` to the repo root before this step.
 
-## Gum styling
+## Gum styling (superseded 2026-09 - kept for history)
 
-setup.sh/setup.ps1 style their output with
-[gum](https://github.com/charmbracelet/gum), strictly as a cosmetic layer:
+Originally, `setup.sh`/`setup.ps1` styled their output with
+[gum](https://github.com/charmbracelet/gum), strictly as a cosmetic layer.
+During the 2026-09 Python rewrite, gum was dropped entirely in favor of
+`rich` (`src/setup/ui.py`) - no external binary, no download/temp-dir
+lifecycle, and it restores Markdown rendering for the `CLAUDE_TEMPLATE.md`
+prompt display that the plain fallback below couldn't do. The bullets
+below describe the retired bash/PowerShell behavior for historical
+context only:
 
-- If gum is already on PATH, it's used untouched. If not,
-  `scripts/ensure-gum.sh`/`.ps1` download the matching release binary into
-  a `mktemp -d` for that run only, removed on exit (`trap ... EXIT` /
-  `finally`) - nothing is ever installed system-wide.
-- Every gum call is guarded by "if $GUM is set"; a failed download
-  (offline, unsupported OS/arch) falls back to plain
+- If gum was already on PATH, it was used untouched. If not,
+  `scripts/ensure-gum.sh`/`.ps1` (now deleted) downloaded the matching
+  release binary into a `mktemp -d` for that run only, removed on exit
+  (`trap ... EXIT` / `finally`) - nothing was ever installed system-wide.
+- Every gum call was guarded by "if $GUM is set"; a failed download
+  (offline, unsupported OS/arch) fell back to plain
   `printf`/`Write-Host` output rather than aborting setup.
-- Styling is a single foreground color per line, no borders/boxes/bold -
+- Styling was a single foreground color per line, no borders/boxes/bold -
   anything louder (a `--border rounded --padding` box originally around
   the final summary, `--margin` for blank lines) added no information.
 - `gum spin` passes `--spinner line` (plain ASCII `| / - \`) instead of
@@ -264,10 +273,11 @@ after a final scan.
 
 ## MCP servers are tested by driving a real `claude -p` session
 
-`scripts/verify-env.sh` only proves binaries are on PATH. That says
-nothing about whether a *registered* MCP server actually answers, so
-`scripts/test-mcp.py` drives a real `claude -p --model sonnet` session per
-server and checks the result.
+Checking that a binary is on PATH says nothing about whether a
+*registered* MCP server actually answers, so `tests/test_mcp_servers.py`
+(a `pytest` suite, part of `uv run pytest`, marked `integration`) drives
+a real `claude -p --model sonnet` session per server and checks the
+result.
 
 The hard part: most of these prompts can be answered *without* the server
 under test - the model already knows what octocat/Hello-World's README
@@ -310,7 +320,7 @@ must never write into someone's real vault.
 
 ## Lightpanda behind @playwright/mcp did not work - switched to its native MCP server
 
-`scripts/test-mcp.py` found the `lightpanda-playwright` server
+`tests/test_mcp_servers.py` (originally `scripts/test-mcp.py`) found the `lightpanda-playwright` server
 (`@playwright/mcp` driven over `--cdp-endpoint`) to be broken. Two
 separate causes:
 
@@ -334,7 +344,7 @@ sessions).
 
 `mcp-servers.json`'s `lightpanda-playwright` entry has been replaced
 with `lightpanda` (`command: lightpanda`, `args: ["mcp"]`), and
-`scripts/test-mcp.py`'s case now drives `evaluate` directly. This does
+`tests/test_mcp_servers.py`'s case now drives `evaluate` directly. This does
 change the tool surface agents see (different tool names, a text/DOM-
 oriented model instead of the standard Playwright MCP surface) - accepted
 since the Playwright-over-CDP path cannot be made to work against
@@ -350,6 +360,6 @@ Its discovery probes only ports 9222 and 9223, and 9222 is where
 Lightpanda listens - which browser-use correctly refuses, since Lightpanda
 is not a Chromium-family browser. The reliable fix is the documented
 `BU_CDP_URL` override: `http://127.0.0.1:9223` is stable, whereas
-`BU_CDP_WS` embeds a per-launch browser UUID. `scripts/test-mcp.py` starts
+`BU_CDP_WS` embeds a per-launch browser UUID. `tests/test_mcp_servers.py` starts
 a headless Chromium on 9223 when nothing is there and injects
 `BU_CDP_URL` into the server entry for the test session only.
