@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 # On Windows, npm-ecosystem tools (npx, and anything installed as a global
 # npm package) commonly resolve to a `.CMD` shim - CreateProcess can't exec
@@ -54,3 +55,25 @@ def docker_version() -> str:
     """Matches `docker --version | cut -d, -f1` - "Docker version X, build Y" -> "Docker version X"."""
     found, version = check_tool("docker")
     return version.split(",")[0] if found else ""
+
+
+def browser_use_chromium_installed() -> bool:
+    """True if Playwright's Chromium (what `browser-use[cli] install` fetches)
+    is already present, so setup doesn't re-prompt for an install that's a
+    no-op. Checks PLAYWRIGHT_BROWSERS_PATH first if set, then the default
+    per-OS cache dir Playwright uses when that's unset."""
+    override = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if override:
+        candidates = [Path(override)]
+    elif os.name == "nt":
+        local_appdata = os.environ.get("LOCALAPPDATA", "")
+        candidates = [Path(local_appdata) / "ms-playwright"] if local_appdata else []
+    elif os.uname().sysname == "Darwin":
+        candidates = [Path.home() / "Library" / "Caches" / "ms-playwright"]
+    else:
+        candidates = [Path.home() / ".cache" / "ms-playwright"]
+
+    for base in candidates:
+        if base.is_dir() and any(base.glob("chromium-*")):
+            return True
+    return False

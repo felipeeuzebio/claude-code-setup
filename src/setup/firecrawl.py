@@ -30,6 +30,24 @@ def _default_checkout_dir() -> Path:
     return Path(override) if override else Path.home() / "services" / "firecrawl"
 
 
+def is_running(checkout_dir: Path | None = None) -> bool:
+    """True if the self-hosted compose stack already has a running container."""
+    checkout_dir = checkout_dir or _default_checkout_dir()
+    if not checkout_dir.is_dir():
+        return False
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "ps", "--status", "running", "-q"],
+            cwd=checkout_dir,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return bool(result.stdout.strip())
+
+
 def bring_up(checkout_dir: Path | None = None) -> FirecrawlResult:
     """Clones/pulls the firecrawl repo, copies .env.example in
     non-destructively (never clobbers an edited checkout .env), and runs

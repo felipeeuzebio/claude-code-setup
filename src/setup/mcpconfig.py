@@ -25,6 +25,10 @@ Server = dict
 Fill = Callable[[Server], Server]
 Rule = tuple[bool, Fill, str]
 
+# Registered by their own installer, not merged here - absence from
+# build_plan() is intentional, not a missing rule.
+UNMANAGED = {"codegraph"}
+
 
 def _env_flag(name: str, env: dict[str, str]) -> bool:
     return bool(re.match(r"^(1|true)$", env.get(name, ""), re.IGNORECASE))
@@ -52,6 +56,7 @@ def build_plan(env: dict[str, str]) -> dict[str, Rule]:
 
     return {
         "context7": (True, lambda s: s, ""),
+        "dbx": (True, lambda s: s, ""),
         "github": (
             bool(github_token),
             lambda s: {**s, "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": github_token}},
@@ -73,8 +78,7 @@ def build_plan(env: dict[str, str]) -> dict[str, Rule]:
             lambda s: s,
             "lightpanda not installed or not supported on this OS",
         ),
-        # codegraph intentionally has no entry - registered by its own
-        # installer, not merged here.
+        # codegraph is in UNMANAGED above - no entry needed here.
     }
 
 
@@ -116,6 +120,8 @@ def merge_and_write(
     for name, server in source.items():
         rule = plan.get(name)
         if rule is None:
+            if name not in UNMANAGED:
+                skipped.append((name, "no readiness rule in build_plan() - add one"))
             continue
         ready, fill, reason = rule
         if ready:

@@ -32,9 +32,10 @@ _SHELL = sys.platform == "win32"
 
 def _install_tool(cmd: str, unix_url: str, windows_url: str) -> bool:
     """Installs `cmd` from a curl|bash (unix) or irm|iex (Windows)
-    one-liner unless it's already on PATH. Returns whether it's available
-    afterward."""
+    one-liner unless it's already on PATH. Prints an ok line either way and
+    returns whether it's available afterward."""
     if shutil.which(cmd):
+        ui.ok(f"{cmd} already installed")
         return True
     if sys.platform == "win32":
         script = f"irm {windows_url} | iex"
@@ -45,7 +46,10 @@ def _install_tool(cmd: str, unix_url: str, windows_url: str) -> bool:
     else:
         script = f"curl -fsSL '{unix_url}' | bash"
         ui.spin(f"Installing {cmd}...", lambda: subprocess.run(["bash", "-c", script]))
-    return shutil.which(cmd) is not None
+    found = shutil.which(cmd) is not None
+    if found:
+        ui.ok(f"{cmd} installed")
+    return found
 
 
 def _git_hook_step() -> None:
@@ -146,6 +150,10 @@ def _browser_use_step(has_uvx: bool) -> bool:
         ui.skip("uvx not available")
         return False
 
+    if sysinfo.browser_use_chromium_installed():
+        ui.ok("browser-use Chromium already installed")
+        return True
+
     if sys.stdin.isatty() and ui.confirm(
         f"Install browser-use's Chromium now? Runs '{bu_install_str}', "
         "which may prompt for your sudo password."
@@ -173,7 +181,6 @@ def _librarian_mcp_step(env: dict[str, str]) -> None:
         ui.warn("librarian-mcp install failed - obsidian MCP entry will be skipped")
         return
 
-    ui.ok("librarian-mcp installed")
     vault_path = env.get("OBSIDIAN_VAULT_PATH", "")
     if not vault_path:
         ui.warn("OBSIDIAN_VAULT_PATH not set - obsidian MCP entry will be skipped")
@@ -194,7 +201,6 @@ def _lightpanda_step(env: dict[str, str]) -> bool:
         ui.skip("SKIP_LIGHTPANDA=1")
         return False
     if _install_tool("lightpanda", "https://pkg.lightpanda.io/install.sh", ""):
-        ui.ok("lightpanda installed")
         return True
     ui.warn("lightpanda install failed - lightpanda MCP entry will be skipped")
     return False
@@ -208,10 +214,13 @@ def _firecrawl_step(has_docker: bool, env: dict[str, str]) -> None:
     if env.get("SKIP_FIRECRAWL") == "1":
         ui.skip("SKIP_FIRECRAWL=1")
         return
+    already_running = firecrawl.is_running()
     result = ui.spin("Bringing up self-hosted Firecrawl...", firecrawl.bring_up)
     if not result.ok:
         ui.warn("Firecrawl bring-up failed - see output above")
         ui.console.print(escape(result.log))
+        return
+    ui.ok("Firecrawl already running" if already_running else "Firecrawl is up")
 
 
 def _bifrost_step(env: dict[str, str]) -> None:
