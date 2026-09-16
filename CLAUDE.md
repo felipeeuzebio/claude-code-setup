@@ -34,7 +34,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 - Just the MCP integration suite: `uv run pytest -m integration` (or `-k <name>` for one case; `-n N` for concurrency via `pytest-xdist`; `--model`/`--mcp-timeout` to override defaults; `--collect-only -q` to list cases)
 - There's no standalone "just verify tools" or "just re-merge config" command any more - re-run `./setup.sh` (idempotent) instead
 - No build step and no linter configured yet — `pyproject.toml` has no `[project.scripts]` beyond `setup`, and nothing here is published or installed elsewhere
-- Benches: `uv run python -m bench.web_tools.webtools` / `uv run python -m bench.docs_retrieval.threearm` — ~20 live `claude -p` sessions each, minutes, real tokens; see `bench/README.md`
+- Benches: `uv run python -m bench.web_tools.webtools`, `uv run python -m bench.docs_retrieval.threearm`, `uv run python bench/vault_plugin/trial.py` — each runs ~20 live `claude -p` sessions, takes minutes, costs real tokens; see `bench/README.md`
 
 ## Verification
 
