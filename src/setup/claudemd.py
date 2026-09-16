@@ -46,39 +46,34 @@ WEB_TOOLS_HEADING = "## Web Fetching, Search & Browser Tools"
 # returns a summary, not the page. bench/docs_retrieval showed Context7 beats
 # both a live scrape and a local mirror on library docs. See AGENTS.md.
 WEB_TOOLS_INTRO = (
-    "Start with the built-ins: WebSearch for a search, WebFetch for a single "
-    "publicly-reachable page - they are the cheapest and fastest option for "
-    "both. Two limits to know: WebFetch returns a summary of the page, not "
-    "the page itself, and it cannot execute JavaScript, so a client-rendered "
-    "page comes back empty or missing what you wanted. Escalate to one of "
-    "these registered MCP servers only when that happens - each ships its "
-    "own detailed tool instructions once loaded:"
+    "Default to WebSearch/WebFetch - cheapest and fastest for a search or a "
+    "single page. WebFetch summarizes rather than returning the page "
+    "verbatim, and can't run JavaScript, so client-rendered pages come back "
+    "empty. Escalate to a registered MCP server only then - each ships its "
+    "own tool instructions:"
 )
 WEB_TOOLS_FALLBACK = (
-    "Don't route a plain page read or a plain search to a browser tool - it "
-    "costs more tokens and time for the same answer."
+    "Don't reach for a browser tool on a plain fetch or search - same "
+    "answer, more tokens and time."
 )
 
 # Keys match mcp-servers.json / build_plan() names; order here is the order
 # the bullets are written in.
 WEB_TOOL_BULLETS: dict[str, str] = {
     "context7": (
-        "- **Context7** (`mcp__context7__resolve-library-id` -> `query-docs`): for "
-        "library/framework/SDK docs go here *before* any web tool - it returns the "
-        "relevant passages, not whole pages, at a fraction of the tokens."
+        "- **Context7** (`resolve-library-id` -> `query-docs`): library/"
+        "framework/SDK docs, before any web tool - relevant passages, not "
+        "whole pages."
     ),
     "lightpanda": (
-        "- **Lightpanda** (`mcp__lightpanda__*`): the first escalation for a page - "
-        "it is JS-rendered, you need the verbatim page as markdown rather than a "
-        "summary, or you want a deterministic sequence of browser actions "
-        "(navigate -> click -> extract) against a known page. A single binary, "
-        "cheap to run."
+        "- **Lightpanda** (`mcp__lightpanda__*`): first escalation for a "
+        "page - JS-rendered, verbatim markdown, or scripted navigate/click/"
+        "extract. Single binary, cheap to run."
     ),
     "browser-use": (
-        "- **browser-use** (`mcp__browser-use__browser_exec`/`browser_screenshot`): "
-        "only when the task needs real interaction - clicking, typing, an "
-        "already-logged-in session, or scraping logic too open-ended to script "
-        "deterministically."
+        "- **browser-use** (`browser_exec`/`browser_screenshot`): real "
+        "interaction only - clicking, typing, a logged-in session, or "
+        "open-ended scraping."
     ),
 }
 

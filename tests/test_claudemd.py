@@ -47,8 +47,8 @@ def test_block_puts_built_ins_before_any_server(tmp_path: Path) -> None:
     # built-in WebSearch/WebFetch first, servers only as escalation.
     content = _run(tmp_path, ALL_THREE)
 
-    assert content.index("Start with the built-ins") < content.index("- **Context7**")
-    assert "cannot execute JavaScript" in content
+    assert content.index("Default to WebSearch/WebFetch") < content.index("- **Context7**")
+    assert "can't run JavaScript" in content
     assert "Firecrawl" not in content
 
 
