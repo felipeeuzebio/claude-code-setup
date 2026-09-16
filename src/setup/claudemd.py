@@ -199,9 +199,11 @@ def _replace_block(existing: str, block: str, start_marker: str, end_marker: str
     return f"{head}\n\n{block}\n" if head else f"{block}\n"
 
 
-def ensure_web_tools_guidance(registered: list[str], env: dict[str, str] | None = None) -> None:
+def ensure_web_tools_guidance(registered: list[str], env: dict[str, str] | None = None, ask: bool = False) -> None:
     """Writes the web/search/browser tool-routing block into the global
     ~/.claude/CLAUDE.md, listing only servers that actually got registered.
+
+    When ask=True and in an interactive terminal, prompts the user first.
 
     Nothing outside the markers is touched, and a run that registers none of
     them drops the block rather than leaving advice pointing at absent tools -
@@ -213,6 +215,17 @@ def ensure_web_tools_guidance(registered: list[str], env: dict[str, str] | None 
     names = [name for name in WEB_TOOL_BULLETS if name in registered]
     path = _global_claude_md(env)
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
+
+    # Prompt if requested and in an interactive terminal
+    if ask and sys.stdin.isatty():
+        if names:
+            question = f"Write web/browser tool guidance to {path}? ({', '.join(names)})"
+        else:
+            ui.skip("No web/browser servers registered - skipping")
+            return
+        if not ui.confirm(question):
+            ui.skip("Skipped")
+            return
 
     block = _render_block(names) if names else ""
     updated = _replace_block(existing, block, WEB_TOOLS_START, WEB_TOOLS_END)

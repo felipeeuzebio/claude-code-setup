@@ -254,7 +254,7 @@ def main() -> None:
     registered = mcpconfig.merge_and_write(env=dict(os.environ))
 
     ui.step("Web/browser tool guidance in ~/.claude/CLAUDE.md")
-    claudemd.ensure_web_tools_guidance(registered, env=dict(os.environ))
+    claudemd.ensure_web_tools_guidance(registered, env=dict(os.environ), ask=sys.stdin.isatty())
 
     _bifrost_step(dict(os.environ))
 
