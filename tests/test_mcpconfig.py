@@ -24,39 +24,6 @@ def test_github_needs_a_token() -> None:
     assert fill({})["env"]["GITHUB_PERSONAL_ACCESS_TOKEN"] == "xyz"
 
 
-def test_firecrawl_skipped_via_case_insensitive_flag() -> None:
-    for value in ("1", "true", "TRUE", "True"):
-        ready, _, reason = build_plan({"SKIP_FIRECRAWL": value})["firecrawl"]
-        assert ready is False
-        assert reason == "SKIP_FIRECRAWL=1"
-
-    ready, fill, _ = build_plan({})["firecrawl"]
-    assert ready is True
-    assert fill({})["env"]["FIRECRAWL_API_URL"] == "http://localhost:3002"
-
-    ready, fill, _ = build_plan({"FIRECRAWL_API_URL": "http://example:9"})["firecrawl"]
-    # existing server env is merged, not replaced
-    assert fill({"env": {"OTHER": "x"}})["env"] == {
-        "OTHER": "x",
-        "FIRECRAWL_API_URL": "http://example:9",
-    }
-
-
-def test_obsidian_needs_an_existing_directory(tmp_path: Path) -> None:
-    ready, _, reason = build_plan({})["obsidian"]
-    assert ready is False
-    assert reason == "OBSIDIAN_VAULT_PATH not set"
-
-    missing = str(tmp_path / "does-not-exist")
-    ready, _, reason = build_plan({"OBSIDIAN_VAULT_PATH": missing})["obsidian"]
-    assert ready is False
-    assert missing in reason
-
-    ready, fill, _ = build_plan({"OBSIDIAN_VAULT_PATH": str(tmp_path)})["obsidian"]
-    assert ready is True
-    assert fill({})["args"] == [str(tmp_path)]
-
-
 def test_browser_use_and_lightpanda_gated_on_flags() -> None:
     assert build_plan({})["browser-use"][0] is False
     assert build_plan({"HAS_UVX": "true"})["browser-use"][0] is True

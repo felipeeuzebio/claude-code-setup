@@ -4,8 +4,8 @@
 # under src/, run via `uv`.
 #
 # Optional config via env vars or a repo-root .env file (see .env.example):
-#   GITHUB_TOKEN, OBSIDIAN_VAULT_PATH,
-#   SKIP_FIRECRAWL=1, SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
+#   GITHUB_TOKEN,
+#   SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $RepoRoot

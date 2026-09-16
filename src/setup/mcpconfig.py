@@ -37,20 +37,6 @@ def _env_flag(name: str, env: dict[str, str]) -> bool:
 def build_plan(env: dict[str, str]) -> dict[str, Rule]:
     github_token = env.get("GITHUB_TOKEN") or env.get("GITHUB_PERSONAL_ACCESS_TOKEN") or ""
 
-    vault_path = env.get("OBSIDIAN_VAULT_PATH", "")
-    if not vault_path:
-        vault_ready, vault_reason = False, "OBSIDIAN_VAULT_PATH not set"
-    elif not Path(vault_path).is_dir():
-        vault_ready, vault_reason = (
-            False,
-            f"OBSIDIAN_VAULT_PATH is not an existing directory: {vault_path} "
-            "(under WSL2, a Windows-side vault needs /mnt/c/... not C:\\...)",
-        )
-    else:
-        vault_ready, vault_reason = True, ""
-
-    firecrawl_url = env.get("FIRECRAWL_API_URL", "http://localhost:3002")
-    skip_firecrawl = _env_flag("SKIP_FIRECRAWL", env)
     has_lightpanda = _env_flag("HAS_LIGHTPANDA", env)
     has_uvx = _env_flag("HAS_UVX", env)
 
@@ -61,16 +47,6 @@ def build_plan(env: dict[str, str]) -> dict[str, Rule]:
             bool(github_token),
             lambda s: {**s, "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": github_token}},
             "GITHUB_TOKEN (or GITHUB_PERSONAL_ACCESS_TOKEN) not set",
-        ),
-        "firecrawl": (
-            not skip_firecrawl,
-            lambda s: {**s, "env": {**s.get("env", {}), "FIRECRAWL_API_URL": firecrawl_url}},
-            "SKIP_FIRECRAWL=1",
-        ),
-        "obsidian": (
-            vault_ready,
-            lambda s: {**s, "args": [vault_path]},
-            vault_reason,
         ),
         "browser-use": (has_uvx, lambda s: s, "uvx not on PATH"),
         "lightpanda": (
@@ -101,10 +77,10 @@ def _resolve_target_path(env: dict[str, str]) -> Path:
 
 def merge_and_write(
     env: dict[str, str] | None = None, target_path: Path | None = None
-) -> None:
+) -> list[str]:
     """Registers every ready MCP server (per build_plan) into ~/.claude.json,
     backing up any existing file first. Prints registered/skipped, same as
-    the original merge-mcp-config.py."""
+    the original merge-mcp-config.py, and returns the registered names."""
     if env is None:
         env = dict(os.environ)
     if target_path is None:
@@ -148,3 +124,5 @@ def merge_and_write(
             ui.console.print(f"  - {escape(name)}: {escape(reason)}", style="yellow")
     else:
         ui.console.print("Skipped: (none)")
+
+    return registered

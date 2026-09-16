@@ -5,11 +5,11 @@ Windows alike. Installs what it can, registers what it can into
 This is the single orchestration spine that used to be duplicated between
 setup.sh and setup.ps1: one codebase, branching on `sys.platform` only
 where behavior genuinely differs (Lightpanda: Linux/Darwin only; the
-codegraph/librarian-mcp installer one-liner: curl|bash vs irm|iex).
+codegraph installer one-liner: curl|bash vs irm|iex).
 
 Optional config via env vars or a repo-root .env file (see .env.example):
-  GITHUB_TOKEN, OBSIDIAN_VAULT_PATH,
-  SKIP_FIRECRAWL=1, SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
+  GITHUB_TOKEN,
+  SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from pathlib import Path
 
 from rich.markup import escape
 
-from setup import bifrost, claudemd, firecrawl, mcpconfig, sysinfo, ui
+from setup import bifrost, claudemd, mcpconfig, sysinfo, ui
 from setup.envfile import apply_env, load_env
 from setup.mcpservers import REPO_ROOT
 
@@ -68,7 +68,8 @@ def _git_hook_step() -> None:
         ui.skip("Not a git checkout")
 
 
-def _required_tools_step() -> dict[str, bool]:
+def _required_tools_step() -> bool:
+    """Exits on a missing hard requirement; returns whether uvx is available."""
     ui.step("Checking required tools")
 
     found, version = sysinfo.check_tool("node")
@@ -83,14 +84,6 @@ def _required_tools_step() -> dict[str, bool]:
         sys.exit(1)
     ui.ok_ver("npx", version)
 
-    has_docker = sysinfo.docker_ready()
-    if has_docker:
-        ui.ok_ver("docker", sysinfo.docker_version())
-    elif shutil.which("docker"):
-        ui.warn("docker found but not running - start Docker Desktop")
-    else:
-        ui.warn("docker not available - Firecrawl self-host will be skipped (see AGENTS.md)")
-
     has_uvx, uvx_version = sysinfo.check_tool("uvx")
     if has_uvx:
         ui.ok_ver("uvx", uvx_version)
@@ -100,7 +93,7 @@ def _required_tools_step() -> dict[str, bool]:
             "(install: https://docs.astral.sh/uv/)"
         )
 
-    return {"docker": has_docker, "uvx": has_uvx}
+    return has_uvx
 
 
 def _codegraph_step() -> None:
@@ -172,26 +165,6 @@ def _browser_use_step(has_uvx: bool) -> bool:
     return False
 
 
-def _librarian_mcp_step(env: dict[str, str]) -> None:
-    ui.step("librarian-mcp (Obsidian)")
-    unix_url = "https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.sh"
-    windows_url = "https://github.com/ngmeyer/librarian-mcp/releases/latest/download/librarian-mcp-installer.ps1"
-
-    if not _install_tool("librarian-mcp", unix_url, windows_url):
-        ui.warn("librarian-mcp install failed - obsidian MCP entry will be skipped")
-        return
-
-    vault_path = env.get("OBSIDIAN_VAULT_PATH", "")
-    if not vault_path:
-        ui.warn("OBSIDIAN_VAULT_PATH not set - obsidian MCP entry will be skipped")
-    elif not Path(vault_path).is_dir():
-        ui.warn(
-            f"OBSIDIAN_VAULT_PATH is not an existing directory: {vault_path} - "
-            "obsidian MCP entry will be skipped (under WSL2, a Windows-side "
-            "vault needs /mnt/c/... not C:\\...)"
-        )
-
-
 def _lightpanda_step(env: dict[str, str]) -> bool:
     ui.step("Lightpanda (fast local browser engine)")
     if sys.platform not in ("linux", "darwin"):
@@ -204,23 +177,6 @@ def _lightpanda_step(env: dict[str, str]) -> bool:
         return True
     ui.warn("lightpanda install failed - lightpanda MCP entry will be skipped")
     return False
-
-
-def _firecrawl_step(has_docker: bool, env: dict[str, str]) -> None:
-    ui.step("Firecrawl (self-hosted web scraping)")
-    if not has_docker:
-        ui.skip("docker unavailable")
-        return
-    if env.get("SKIP_FIRECRAWL") == "1":
-        ui.skip("SKIP_FIRECRAWL=1")
-        return
-    already_running = firecrawl.is_running()
-    result = ui.spin("Bringing up self-hosted Firecrawl...", firecrawl.bring_up)
-    if not result.ok:
-        ui.warn("Firecrawl bring-up failed - see output above")
-        ui.console.print(escape(result.log))
-        return
-    ui.ok("Firecrawl already running" if already_running else "Firecrawl is up")
 
 
 def _bifrost_step(env: dict[str, str]) -> None:
@@ -249,7 +205,6 @@ def _summary_step(env: dict[str, str], bu_install_str: str) -> None:
     )
 
     warnings: list[str] = []
-    issues: list[str] = []
 
     if not (env.get("GITHUB_TOKEN") or env.get("GITHUB_PERSONAL_ACCESS_TOKEN")):
         warnings.append("- Set GITHUB_TOKEN and re-run to register the GitHub MCP server.")
@@ -265,24 +220,9 @@ def _summary_step(env: dict[str, str], bu_install_str: str) -> None:
             "MCP (installs Chromium, may prompt for sudo on Linux)."
         )
 
-    vault_path = env.get("OBSIDIAN_VAULT_PATH", "")
-    if not vault_path:
-        warnings.append(
-            "- Set OBSIDIAN_VAULT_PATH and re-run to register the Obsidian "
-            "(librarian-mcp) server."
-        )
-    elif not Path(vault_path).is_dir():
-        issues.append(
-            f"- OBSIDIAN_VAULT_PATH ({vault_path}) is not an existing directory - "
-            "fix it and re-run to register the Obsidian (librarian-mcp) server."
-        )
-
-    if issues or warnings:
-        ui.step("Warnings & issues")
-        if issues:
-            ui.console.print(escape("\n".join(issues)), style="red")
-        if warnings:
-            ui.console.print(escape("\n".join(warnings)), style="yellow")
+    if warnings:
+        ui.step("Warnings")
+        ui.console.print(escape("\n".join(warnings)), style="yellow")
 
 
 def main() -> None:
@@ -296,17 +236,13 @@ def main() -> None:
 
     _git_hook_step()
 
-    tool_status = _required_tools_step()
-    has_docker = tool_status["docker"]
-    has_uvx = tool_status["uvx"]
+    has_uvx = _required_tools_step()
     os.environ["HAS_UVX"] = "true" if has_uvx else "false"
 
     _codegraph_step()
 
     browser_use_ready = _browser_use_step(has_uvx)
     os.environ["BROWSER_USE_READY"] = "true" if browser_use_ready else "false"
-
-    _librarian_mcp_step(dict(os.environ))
 
     has_lightpanda = _lightpanda_step(dict(os.environ))
     os.environ["HAS_LIGHTPANDA"] = "true" if has_lightpanda else "false"
@@ -315,9 +251,11 @@ def main() -> None:
     claudemd.ensure_claude_md()
 
     ui.step("Registering MCP servers into ~/.claude.json")
-    mcpconfig.merge_and_write(env=dict(os.environ))
+    registered = mcpconfig.merge_and_write(env=dict(os.environ))
 
-    _firecrawl_step(has_docker, dict(os.environ))
+    ui.step("Web/browser tool guidance in ~/.claude/CLAUDE.md")
+    claudemd.ensure_web_tools_guidance(registered, env=dict(os.environ))
+
     _bifrost_step(dict(os.environ))
 
     bu_install_str = "uvx --python 3.12 browser-use[cli] install"

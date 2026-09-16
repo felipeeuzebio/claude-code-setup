@@ -74,47 +74,6 @@ CASES = [
         why="live documentation lookup returns a real registry ID",
     ),
     Case(
-        name="firecrawl-scrape",
-        server="firecrawl",
-        tools=("mcp__firecrawl__firecrawl_scrape",),
-        must_call=("mcp__firecrawl__firecrawl_scrape",),
-        prompt=(
-            "Use the firecrawl_scrape tool to scrape https://example.com . "
-            "Reply with exactly one line, 'TITLE=<the page's main heading>', "
-            "and nothing else."
-        ),
-        expect=r"Example Domain",
-        why="self-hosted Firecrawl fetches and converts a live page",
-    ),
-    Case(
-        name="firecrawl-js",
-        server="firecrawl",
-        tools=("mcp__firecrawl__firecrawl_scrape",),
-        must_call=("mcp__firecrawl__firecrawl_scrape",),
-        prompt=(
-            "Use the firecrawl_scrape tool to scrape https://quotes.toscrape.com/js/ . "
-            "That page builds its quote list with JavaScript. Count the quotes in "
-            "the scraped content. Reply with exactly one line, 'COUNT=<number>', "
-            "and nothing else."
-        ),
-        # The static HTML has zero rendered quotes - 10 only appears post-JS.
-        expect=r"COUNT=\s*10\b",
-        why="Firecrawl's headless browser executes JavaScript, not just raw HTML",
-    ),
-    Case(
-        name="firecrawl-search",
-        server="firecrawl",
-        tools=("mcp__firecrawl__firecrawl_search",),
-        must_call=("mcp__firecrawl__firecrawl_search",),
-        prompt=(
-            "Use the firecrawl_search tool to search the web for "
-            "'Model Context Protocol specification'. Reply with exactly one line, "
-            "'URL=<url of the single most relevant result>', and nothing else."
-        ),
-        expect=r"modelcontextprotocol",
-        why="web search returns ranked live results",
-    ),
-    Case(
         name="github",
         server="github",
         tools=("mcp__github__get_file_contents",),
@@ -142,20 +101,6 @@ CASES = [
         expect=r"mcpconfig\.py",
         why="the code graph index resolves a symbol to its defining file",
         needs="codegraph-index",
-    ),
-    Case(
-        name="obsidian",
-        server="obsidian",
-        tools=("mcp__obsidian__library_stats",),
-        must_call=("mcp__obsidian__library_stats",),
-        # Read-only on purpose: never write into someone's real vault to prove it works.
-        prompt=(
-            "Use the library_stats tool to get statistics about the vault. Reply "
-            "with exactly one line, 'NOTES=<the total number of notes>', and "
-            "nothing else."
-        ),
-        expect=r"NOTES=\s*\d+",
-        why="librarian-mcp reads the configured vault off disk",
     ),
     Case(
         name="browser-use",

@@ -4,7 +4,7 @@ ad hoc implementations (setup.sh's inline `command -v` checks, setup.ps1's
 into one shared, testable function.
 
 Internal-only: there's no standalone "verify-env" report any more - the
-tools this actually gates (node/npx/docker/uvx) are checked as part of
+tools this actually gates (node/npx/uvx) are checked as part of
 setup's own "Checking required tools" step, and re-running `./setup.sh`
 (idempotent) is how you recheck what's installed.
 """
@@ -36,25 +36,6 @@ def check_tool(cmd: str, version_arg: str = "--version") -> tuple[bool, str]:
         return True, ""
     text = (result.stdout or result.stderr).strip()
     return True, (text.splitlines()[0] if text else "")
-
-
-def docker_ready() -> bool:
-    """True if docker is on PATH AND the daemon is actually running."""
-    if not shutil.which("docker"):
-        return False
-    try:
-        result = subprocess.run(
-            ["docker", "info"], capture_output=True, timeout=10, shell=_SHELL
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return result.returncode == 0
-
-
-def docker_version() -> str:
-    """Matches `docker --version | cut -d, -f1` - "Docker version X, build Y" -> "Docker version X"."""
-    found, version = check_tool("docker")
-    return version.split(",")[0] if found else ""
 
 
 def browser_use_chromium_installed() -> bool:

@@ -1,7 +1,7 @@
 [project]
 name = "setup"
 version = "0.1.0"
-description = "Claude Code environment bootstrap: MCP server registration, tool checks, Firecrawl/Bifrost bring-up"
+description = "Claude Code environment bootstrap: MCP server registration, tool checks, Bifrost bring-up"
 requires-python = ">=3.11"
 dependencies = [
     "rich>=15.0.0",

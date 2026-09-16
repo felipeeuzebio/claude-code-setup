@@ -16,27 +16,58 @@ registering downstream MCP servers — that's done through its web UI
 not by hand-editing JSON we control. Re-check `docs.getbifrost.ai` if the
 UI has moved things around.
 
-## Firecrawl: self-hosted via Docker, not cloud
+## Firecrawl: removed 2026-09-16, on measurement
 
-Uses Docker Desktop's WSL2 integration rather than Docker Engine natively
-in the distro, or Firecrawl Cloud, since Docker Desktop was already the
-assumed setup.
+Firecrawl was self-hosted here (Docker Compose, ~10 containers) as the
+preferred scraping/search server from 2026-09-11 until it was benchmarked
+against Claude Code's built-in WebSearch/WebFetch and against Lightpanda
+(`bench/web_tools/results.md`). What the numbers said:
 
-Two bugs to know about if `docker compose up` misbehaves on first run,
-both worked around in `src/setup/firecrawl.py` / the Firecrawl section
-of `.env.example`:
+- On a **static page**, built-in WebFetch was correct and 5-40x cheaper in
+  tokens (53 B vs 624 B; 184 B vs 7,510 B into context) and faster
+  (8.5-9 s vs 11-15 s). WebFetch returns a side-model summary rather than
+  the page, which is why it's so cheap - and why it's lossy.
+- On a **JS-rendered page**, WebFetch fails (no JavaScript) - it burned 6
+  calls and 51 s and then guessed. Firecrawl, Lightpanda and browser-use
+  all answered in 1-2 calls, 10-16 s. So a JS-capable tool is needed, but
+  Lightpanda covers it as a single binary.
+- On **plain search**, WebSearch matched `firecrawl_search` on correctness,
+  smaller (2.0 vs 2.7 KB) and faster (13 vs 19 s).
+- On **library docs** (`bench/docs_retrieval`), Context7 beat a live
+  Firecrawl search ~5x on tokens (5.6 KB vs 26.4 KB per question) with
+  identical correctness, because it returns passages and Firecrawl returns
+  whole pages.
+- On **verbatim content** (`bench/web_tools/verbatim.py` - exact quote,
+  install command, code line, a setting on a 420 KB reference page), the
+  worry that WebFetch's summary would paraphrase did not materialise: 4/4
+  exact, 223-546 bytes each. The 420 KB page is where Firecrawl fell
+  apart instead - a truncated scrape, then 22 calls, 228 s and 2.1M
+  cached tokens of thrashing through its other tools to recover.
 
-- **RabbitMQ `EACCES` on `.erlang.cookie`** — a known
-  Docker-Desktop-on-WSL2 anonymous-volume permission quirk. Fix:
-  `docker compose down -v && docker compose up -d` once.
-- **`NUQ_BACKEND=postgres` is not a valid value** — the API only accepts
-  `pg` or `fdb`. Set to `pg`, matching the `nuq-postgres` service this
-  compose file brings up.
+What was *not* measured: `crawl` and schema-driven `extract` - the
+multi-page/structured features (`map` only appeared as part of the V4
+thrash). The removal is not a verdict on those; it
+is that nothing in daily use needed them, Claude can do schema extraction
+itself from Lightpanda's markdown, and the stack's operational cost was
+real and recurring: it did not come back after a WSL reboot, and a server
+the global CLAUDE.md says to "prefer" while it is dead costs a failed tool
+call on every lookup routed to it. It also registered 27 tool names into
+every session. A four-voice council (`/council`) reached the same
+conclusion unanimously.
 
-Both are WSL2/Docker-Desktop-specific; native Linux with Docker Engine
-installed directly hits neither. `setup`'s docker check and
-`src/setup/firecrawl.py` are plain `docker compose` calls with no
-WSL-specific logic of their own.
+Two consequences to keep in mind:
+
+- **`mcpconfig.merge_and_write()` is additive** - it never removes a
+  server from `~/.claude.json`. Dropping one from `mcp-servers.json` leaves
+  the old entry in place until it's removed by hand
+  (`claude mcp remove firecrawl -s user`). Worth remembering for any future
+  removal.
+- **If Firecrawl ever comes back, it's Cloud, gated on `FIRECRAWL_API_KEY`**
+  under the "no secret, no registration" rule, and it does not get a
+  `WEB_TOOLS` bullet without beating the built-ins on a bench. The
+  self-hosted bring-up code (`src/setup/firecrawl.py`, the compose env in
+  `.env.example`, two Docker-Desktop-on-WSL2 workarounds) is in git history
+  before this date.
 
 ## browser-use + Lightpanda: both, not either/or
 
@@ -115,41 +146,67 @@ repo, or `codegraph sync` if it does, rather than codegraph's own generic
 "next steps" hint. A non-interactive terminal gets the command printed
 instead of being asked.
 
-## Obsidian: librarian-mcp instead of mcp-obsidian
+## Obsidian: out of setup for now (librarian-mcp removed 2026-09-16)
 
-Swapped after checking
-[hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code),
-the largest curated Claude Code resource list. Went with
-[librarian-mcp](https://github.com/ngmeyer/librarian-mcp) over the
-originally-planned `MarkusPfundstein/mcp-obsidian` because:
+`setup` no longer configures anything for an Obsidian vault - no server,
+no `OBSIDIAN_VAULT_PATH`, no CLAUDE.md block. The question of how Claude
+should reach the vault is parked, to be studied properly later; what
+follows is the record of what was tried so that study doesn't start from
+zero. The one measured conclusion worth carrying: the vault is a
+directory, and one built-in Grep/Read/Write call per operation was cheaper
+than every server or plugin tried (turn count sets the token bill, see
+`bench/`). A future setup step probably grants access to that directory
+(`permissions.additionalDirectories`) and tells Claude it exists in the
+global `CLAUDE.md` - a fresh session never looked there unprompted (0/8 in
+the docs probe) - rather than registering a server. Inside Obsidian
+itself, [Claudian](https://github.com/YishenTu/claudian) (community
+plugin, 15k stars) embeds Claude Code with the vault as cwd; on this
+machine that is the *Windows* `claude.exe` with its own `~/.claude.json`.
 
-- It reads the vault directory straight off disk - Obsidian doesn't need
-  to be running, and there's no dependency on the community "Local REST
-  API" plugin or an `OBSIDIAN_API_KEY`.
-- It sidesteps `mcp-obsidian`'s known stability issue (pinned to Python
-  MCP SDK `<2.0.0`, `BrokenPipeError` on newer SDKs).
-- Broader tool surface: 17 tools including trigram search, auto-wikilinks
-  on write, and real graph analytics (Louvain communities, PageRank,
-  shortest-path) versus mcp-obsidian's basic read/search/write.
-- Ships native release binaries for Linux, macOS, *and* Windows - no
-  OS restriction despite reading the vault straight off disk rather than
-  talking to the Obsidian app.
+What was tried and why each lost:
 
-Also considered from the same list but not adopted: `agentcairn`,
-`claude-bedrock`, and `claude-obsidian` - all take a more opinionated
-"second brain" / Zettelkasten angle than a plain MCP server, more setup
-than this needed.
+- **librarian-mcp** (the previous choice, from
+  [awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code)):
+  reads the vault off disk with 17 tools, trigram search, graph analytics.
+  In use: 29 stars, no push since 2026-06; indexes once per process with
+  no refresh (`/clear` and `/mcp` don't respawn it, killing the process
+  does); multi-word `library_search` returns empty snippets and no phrase
+  match, so Claude ranks hits by filename; `library_read` is whole-page
+  only. At 188 notes / 2 MB there is nothing for its index to speed up
+  that Grep doesn't do in one call.
+- **mcp-obsidian** (`MarkusPfundstein`, 4.4k stars): seven tools over the
+  Obsidian *Local REST API* plugin - needs Obsidian running, that plugin
+  installed, an `OBSIDIAN_API_KEY` and a self-signed cert; `mcp` SDK
+  pinned `<2.0`. Mirrored WSL networking would make `localhost:27124`
+  reachable, so it *would* work; it just buys a running-app dependency and
+  a secret for read/search/append the built-ins already have. Its one
+  extra, `patch_content` under a heading, is an `Edit` with `old_string`.
+- **@modelcontextprotocol/server-filesystem**: read/write/edit/list/move
+  and `search_files`, which is a **glob on names, not content**. A strict
+  subset of the built-in tools, minus Grep, one ToolSearch further away.
+- **claude-obsidian** (Claude Code plugin, v2.2.0, 15k stars) - measured
+  in `bench/vault_plugin/results.md`: good BM25 retrieval (8/8 bench pages
+  in the top 3, real snippets) and transactional writes with provenance,
+  but its writes fail on a vault under `/mnt/c` (enforces file mode
+  `0600`, drvfs reports `0777` -> `RESULT_DRIFT`, rolled back), it only
+  indexes `wiki/` so it dictates the layout, and its skills drive a Python
+  CLI turn by turn (starting with `find /` for its own install path):
+  5-30x librarian-mcp per operation. Revisit only if the vault moves to a
+  filesystem where its writes succeed *and* a release resolves its own
+  product root.
 
-**Path conventions**, since only the filesystem librarian-mcp itself runs
-on matters (Obsidian.app doesn't need to be running at all):
+**Path conventions** for whenever a vault path comes back, since only the
+filesystem the Claude Code process runs on matters (Obsidian doesn't need
+to be running):
 
 - `setup.ps1` (native Windows): a normal Windows path, e.g.
   `C:\Users\you\Documents\MyVault`.
-- `setup.sh` under WSL2, vault on the Windows side: use the `/mnt/c/...`
-  mount, not the Windows-style path - e.g.
-  `/mnt/c/Users/you/Documents/MyVault`. Works, but cross-boundary 9p file
-  access is noticeably slower than a native mount; worth knowing if
-  running trigram search or graph analytics over a large vault repeatedly.
+- `setup.sh` under WSL2, vault on the Windows side: the `/mnt/c/...` mount,
+  not the Windows-style path - e.g. `/mnt/c/Users/you/Documents/MyVault`.
+  Cross-boundary 9p access is slower than a native mount and does not
+  honour POSIX file modes (everything is `0777` without the `metadata`
+  automount option) - harmless for Grep/Read/Write, fatal for tools that
+  verify modes after writing.
 
 ## setup: skip rather than write broken entries
 
@@ -167,13 +224,13 @@ run instead, so re-running `./setup.sh`/`.ps1` after adding one line to
 
 Two things this rule had to be tightened for:
 
-- **"Present" for `OBSIDIAN_VAULT_PATH` means a real directory, not just a
-  non-empty string.** A typo'd path, or a Windows-style `C:\...` path
-  handed to the WSL2/Linux `librarian-mcp` binary (which needs
-  `/mnt/c/...` instead), used to pass a bare `bool(vault_path)` check and
-  only fail later at Claude Code runtime as an opaque MCP connection
-  error. `build_plan()` in `src/setup/mcpconfig.py` checks
-  `Path(vault_path).is_dir()`. Lightpanda is Linux/macOS-only, so the
+- **"Present" means valid, not just non-empty.** When `OBSIDIAN_VAULT_PATH`
+  was a thing, a typo'd path or a Windows-style `C:\...` path handed to a
+  WSL2/Linux process (which needs `/mnt/c/...`) used to pass a bare
+  `bool(value)` check and only fail later at Claude Code runtime as an
+  opaque MCP connection error; the fix was `Path(value).is_dir()` before
+  writing anything. Same principle for any path-shaped secret that comes
+  back. Lightpanda is Linux/macOS-only, so the
   Windows path skips it outright rather than half-installing.
 - **The original bash `setup.sh`'s own `.env` loader used to corrupt paths
   with spaces.** It `source`d `.env` directly, but `source` runs it as
@@ -196,14 +253,101 @@ permanently-installed command:
 - `CLAUDE_TEMPLATE.md` (root) holds the prompt text with the starter
   structure embedded, no slash-command frontmatter - just a prompt, read
   by the setup scripts and cat-able by a human.
-- If `CLAUDE.md` already exists, the step is skipped outright - it never
-  overwrites hand-written project knowledge. The "yes" path also tells the
-  model to summarize changes and wait for confirmation if the file somehow
-  is present, as a second guard.
+- If `CLAUDE.md` already exists, setup asks whether to *refresh* it
+  (default no) instead of skipping. The template tells the model to
+  summarize and wait for confirmation when the file is present, but
+  `claude -p` can't ask, so the y/n happens in the terminal and
+  `REFRESH_LEAD` hands the answer over: keep every hand-written line that
+  still matches the repo, change only what no longer does. Nothing is
+  overwritten without that explicit yes, and a non-interactive run never
+  touches an existing file. Review with `git diff CLAUDE.md` afterwards.
+- No `--model` is passed to `claude -p` on purpose: the file should come
+  from whatever the user's default model is, not a pin that goes stale.
 - A non-interactive run (no TTY on stdin) never blocks on a prompt - it
   prints the copy-paste block, same as answering no.
 - Saying yes runs `claude -p "$(cat CLAUDE_TEMPLATE.md)"` right there,
   since setup.sh/setup.ps1 already `cd` to the repo root before this step.
+
+## Web tool guidance lives in the global CLAUDE.md, gated on what registered
+
+Registering an MCP server makes its tools *available*, not *preferred*:
+each server ships its own instructions, but those describe the server in
+isolation and can't say "use this instead of WebFetch" - or the reverse.
+The integration suite hides this, because every case runs with
+WebFetch/WebSearch/Bash explicitly denied (see the testing section below),
+so it proves the servers *work*, never that they'd be *chosen*.
+
+So `setup` maintains a `<!-- WEB_TOOLS_START -->`-delimited block in the
+user's global `~/.claude/CLAUDE.md` - the same marker shape codegraph's own
+installer uses there, and global rather than per-project because tool
+routing isn't project-specific (`CLAUDE_TEMPLATE.md` deliberately stays
+about the repo being documented).
+
+**The block's order is measured, not assumed.** The first version (2026-09)
+said "prefer Firecrawl/Lightpanda/browser-use over WebFetch/WebSearch".
+`bench/web_tools` then showed that steers every trivial lookup onto the
+heaviest tool: built-in WebFetch/WebSearch win on a static page and a
+plain search, and only lose when the page needs JavaScript (see the
+Firecrawl section above). The block now says: built-ins first; Context7
+before any web tool for library docs; Lightpanda as the escalation for
+JS-rendered pages or verbatim page content; browser-use only for real
+interaction. `tests/test_claudemd.py` pins that order. Change the wording
+only with a bench result in hand.
+
+Two properties worth preserving:
+
+- **Gated on what actually registered.** `merge_and_write()` returns its
+  registered list and the block is rendered from that, so a machine without
+  Lightpanda never gets a bullet recommending it. Same reasoning as "skip
+  rather than write broken entries" above - advice pointing at an absent
+  tool is worse than no advice. A run that registers none of them removes
+  the block instead of leaving it stale.
+- **Only the marked block is rewritten.** Everything outside the markers is
+  hand-written and left byte-identical; a re-run with the same servers is a
+  no-op, which is what keeps `./setup.sh` safely idempotent here.
+
+## Docs are not mirrored into the vault (probe, 2026-09-15)
+
+The idea: crawl documentation sites into the Obsidian vault
+(`Indexed Docs/<docname>/<version>/<page-slug>.md`) so lookups become local
+`library_search` -> `library_read` reads. A Stage-0 probe built the crawler
+(`docs-index`, since deleted - in git history), mirrored Drizzle ORM (187
+pages, 8 min, zero context tokens) and ran 8 questions through three arms
+(`bench/docs_retrieval/results.md`). All three arms were 8/8 correct;
+Context7 cost 5.6 KB per question against the vault's 13.8 KB, because
+`library_read` returns whole pages and has no section/range option. The
+vault did beat a live Firecrawl search 2x on tokens and latency - but
+that niche (docs Context7 doesn't cover) never came up in practice, so the
+crawler was removed with Firecrawl rather than kept as dead weight. Three
+things learned about librarian-mcp (since removed - see the Obsidian
+section) that still matter for any vault tool:
+
+- **It indexes once, at process start, and has no refresh tool.** Each
+  Claude Code conversation spawns its own `librarian-mcp` (child of that
+  `claude` process); `/clear` and `/mcp` do *not* respawn it. Killing the
+  process does - Claude Code lazily respawns it on the next tool call with
+  context intact. Any file written to the vault from outside a session is
+  invisible to that session until then.
+- **Multi-word `library_search` queries return empty snippets and do no
+  phrase matching** (bag-of-words scoring); single-word queries return
+  snippets. Claude ends up ranking hits by filename, so readable note
+  names matter more than they look.
+- In a fresh session, nothing told Claude the vault held docs: it never
+  looked there (0/8) without an explicit hint. Tool selection is driven by
+  prompt text, not tool quality - the reason the `WEB_TOOLS` block exists.
+
+## bench/: measurements behind these decisions
+
+`bench/` holds the harnesses and write-ups the two sections above rest
+on. `bench/harness.py` runs one `claude -p` session locked to a given set
+of MCP servers and tools (same technique as the integration suite) and
+records correctness, tool calls, bytes returned by tools, the session's
+own `usage`, and wall-clock. Each bench folder is a script plus
+`results.md`; raw `results.jsonl` is regenerated per run and gitignored.
+Not part of `pytest` - they cost real tokens. One lesson from running
+them: **turn count dominates total tokens.** Every turn re-reads ~100k
+cached tokens of system prompt and tool schemas, so one extra tool call
+outweighs several KB of tool output; compare arms on calls first.
 
 ## Gum styling (superseded 2026-09 - kept for history)
 
@@ -266,7 +410,7 @@ it's wired up automatically on setup.
 ## Repo: private
 
 The repo stores MCP server topology and setup scripts referencing personal
-services (self-hosted Firecrawl, Obsidian vault, Bifrost instance). Kept
+services (Obsidian vault, Bifrost instance). Kept
 private by default; secrets themselves are never committed (see
 `mcp-servers.json` placeholders) so it could be made public later
 after a final scan.
@@ -307,7 +451,7 @@ answer:
   array by JavaScript, so a JS-executing browser sees 10 `.quote`
   elements and a plain HTTP fetch sees 0 - the single number that
   separates a real headless browser from a bare fetch, which is why it
-  backs the Firecrawl, browser-use, and Lightpanda cases.
+  backs the browser-use and Lightpanda cases.
 - `octocat/Hello-World` - the canonical GitHub test repo; its `README` has
   read `Hello World!` since 2011.
 - Context7 asserts on the registry-assigned ID `/colinhacks/zod`, which
@@ -315,8 +459,8 @@ answer:
 
 Cases skip (rather than fail) when a server isn't registered or a
 prerequisite is missing, so the suite stays meaningful on a partial setup.
-The Obsidian case is deliberately read-only (`library_stats`) - a test
-must never write into someone's real vault.
+There is no vault case any more (no vault server); if one ever returns,
+keep it read-only - a test must never write into someone's real vault.
 
 ## Lightpanda behind @playwright/mcp did not work - switched to its native MCP server
 
