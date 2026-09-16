@@ -1,0 +1,162 @@
+# Docs retrieval: vault mirror vs Context7 vs Firecrawl live
+
+Date: 2026-09-15. Answers the Stage-0 question from the plan: does mirroring
+a doc site into the Obsidian vault (`Indexed Docs/<docname>/<version>/`)
+beat just asking Context7 or Firecrawl? Corpus: `Indexed Docs/drizzle/1.0-beta/`,
+187 pages, per-dialect subtrees and changelog excluded, built with:
+
+```
+uv run docs-index drizzle 1.0-beta https://orm.drizzle.team/docs \
+  --limit 5000 --workers 6 \
+  --exclude '/docs/(sqlite|mysql|cockroach|mssql|singlestore)/' \
+  --exclude '/docs/latest-releases/'
+```
+
+(771 pages mapped, 546 of them per-dialect near-duplicates of the pg pages;
+`latest-releases.md` slipped past the exclude - the regex wanted a trailing
+slash - and was deleted by hand.)
+
+## One-time costs
+
+| | |
+|---|---|
+| Crawl wall-clock | 8m10s (188 pages, 6 workers, 0 failures) |
+| Context tokens | 0 (script hits Firecrawl HTTP directly) |
+| Boilerplate removed | 20% (2.03M -> 1.64M chars) |
+| Disk | ~1.6 MB |
+
+## Questions (natural-language, not keyword-tuned)
+
+| ID | Question |
+|---|---|
+| Q1 | How do I select only specific columns instead of all of them? |
+| Q2 | How do I do a LEFT JOIN and what does the result shape look like? |
+| Q3 | How do I fetch a user with all their posts in one query (relational API)? |
+| Q4 | How do I run multiple writes in a transaction and roll back? |
+| Q5 | How do I generate SQL migration files from my schema with drizzle-kit? |
+| Q6 | How do I add a unique index on a column? |
+| Q7 | How do I do an upsert (insert or update on conflict)? |
+| Q8 | How do I define a Postgres table with a serial PK and a timestamp column? |
+
+## Arm C — vault (`library_search` -> `library_read`), measured in-session
+
+| Question | Top-3 `library_search` results (expected page in bold) | Page read | Page size (KB / ~tokens) | Answer on the page? |
+|---|---|---|---|---|
+| Q1 | sql, joins, **select** (rank 3) | select.md | 24.4 KB / ~6.1k tok | yes |
+| Q2 | **joins**, aliases, guides-count-rows | joins.md | 11.8 KB / ~3.0k tok | yes |
+| Q3 | **rqb**, guides-include-or-exclude-columns, relations | rqb.md | 24.6 KB / ~6.2k tok | yes |
+| Q4 | **transactions**, connect-nile, connect-neon | transactions.md | 3.5 KB / ~0.9k tok | yes |
+| Q5 | **drizzle-kit-generate**, migrations, drizzle-kit-migrate | drizzle-kit-generate.md | 11.8 KB / ~2.9k tok | yes |
+| Q6 | **indexes-constraints**, guides-unique-case-insensitive-email, generated-columns | indexes-constraints.md | 11.8 KB / ~2.9k tok | yes |
+| Q7 | **guides-upsert**, insert, v0-v1-changes | guides-upsert.md | 12.8 KB / ~3.2k tok | yes |
+| Q8 | indexes-constraints, guides-timestamp-default-value, column-types | column-types.md | 31.3 KB / ~7.8k tok | yes, but sql-schema-declaration.md (13 KB) is the better page and was not in top 3 |
+
+- **Correctness: 8/8** pages contain the answer. Rank-1 hit: 6/8.
+- **Round trips: 2** per question (search + read). No question needed a second read.
+- **Tokens in: ~75 (search) + 0.9k–7.8k (read)**, median ~3.1k per question.
+- **Latency:** local disk; search <1s, read instant. No network.
+
+### librarian-mcp search behaviour (affects how arm C should be driven)
+
+- Multi-word queries are scored bag-of-words with **no phrase matching** and
+  return **empty snippets**. A verbatim sentence from `joins.md` did not surface
+  `joins.md` in the top 3 because `Drizzle`/`ORM` appear on every page.
+- Single-word queries return snippets and low per-term scores.
+- Consequence: without snippets the agent ranks candidates by **filename**.
+  Bare readable slugs (`select`, `joins`, `rqb`) make that trivial — this is
+  the layout decision paying for itself.
+- Consequence: a whole-page read is the unit of retrieval. `library_read` has
+  no range/section option, so page size is the token cost. The 24–31 KB pages
+  (select, rqb, column-types) are where arm C is weakest.
+- Corpus hygiene has an outsized effect: removing one changelog page moved
+  `rqb` from rank 2 to rank 1.
+
+### Index lifecycle (operational)
+
+- librarian-mcp indexes once at process start; no refresh tool.
+- Each Claude Code conversation spawns its own server; `/clear` and `/mcp` do
+  **not** respawn it. Killing the process does: Claude Code lazily respawns on
+  the next tool call, context intact.
+- Any external write to the vault is invisible to every open session until
+  its server is recycled.
+
+## Three arms, measured identically (`threearm.py`)
+
+All three arms as fresh `claude -p` sessions (model: sonnet), each locked to
+one MCP server via `--strict-mcp-config`, WebFetch/WebSearch/Bash/Read denied.
+Correctness = fixed regex on the final answer (see `QUESTIONS`). "Tool KB" =
+bytes returned by all tool calls in the session, the tokens-into-context proxy.
+24 sessions; raw records go to `results.jsonl` (regenerated per run, not
+committed).
+
+| Arm | Correct answers | MCP calls per question (mean) | Tool output per question, KB (median) | Tool output, KB (min–max) | Session wall-clock, s (median) |
+|---|---|---|---|---|---|
+| A — Context7 | **8/8** | 2.1 | **5.6** | 4.1–8.9 | 19.9 |
+| B — Firecrawl live | **8/8** | 1.4 | 26.4 | 11.0–47.4 | 27.6 |
+| C — vault | **8/8** | 2.3 | 13.8 | 5.7–42.2 | **13.7** |
+
+Per question. "Tool output" is the bytes every tool call returned into the
+session (the tokens-into-context proxy); wall-clock is the whole `claude -p`
+session. Bold marks the cheapest and the fastest arm on each question. All 24
+answers were correct.
+
+| Question | Tool output, KB — Context7 | Tool output, KB — Firecrawl | Tool output, KB — Vault | Wall-clock, s — Context7 | Wall-clock, s — Firecrawl | Wall-clock, s — Vault | MCP calls — Context7 | MCP calls — Firecrawl | MCP calls — Vault |
+|---|---|---|---|---|---|---|---|---|---|
+| Q1 | **4.7** | 47.4 | 11.7 | 18.2 | 26.7 | **12.9** | 2 | 1 | 2 |
+| Q2 | **5.8** | 15.6 | 13.7 | 26.9 | 19.8 | **14.4** | 2 | 1 | 3 |
+| Q3 | **4.8** | 11.0 | 26.2 | 19.7 | 19.8 | **17.8** | 2 | 2 | 2 |
+| Q4 | **5.5** | 34.1 | 5.7 | 20.1 | 31.0 | **11.9** | 2 | 1 | 2 |
+| Q5 | **4.1** | 17.8 | 13.8 | **15.4** | 28.1 | 23.6 | 2 | 2 | 2 |
+| Q6 | **6.5** | 37.6 | 13.8 | 19.3 | 27.1 | **14.4** | 2 | 1 | 2 |
+| Q7 | **6.1** | 18.7 | 14.7 | 20.9 | 46.1 | **11.1** | 2 | 2 | 2 |
+| Q8 | **8.9** | 38.6 | 42.2 | 26.2 | 34.2 | **12.5** | 3 | 1 | 3 |
+| **Median** | **5.6** | **26.4** | **13.8** | **19.9** | **27.6** | **13.7** | 2 | 1 | 2 |
+
+Every arm also pays one `ToolSearch` round trip to load its deferred MCP
+tool schema. Its result isn't text, so it adds nothing to the KB column, and
+it isn't an MCP call; it cancels across arms either way.
+
+### Reading it against the plan's table
+
+- **Correctness: three-way tie.** Retrieval quality is not the problem.
+- **C vs A: Context7 wins on tokens, 2.5× (5.6 KB vs 13.8 KB).** Per the
+  plan, "C matches A on tokens → don't build" — and C does worse than match.
+  For Context7-covered docs the mirror is not worth its staleness liability.
+- **C vs B: the vault wins, 2× on tokens (13.8 vs 26.4 KB) and 2× on
+  latency.** This is the below-the-Context7-line case. `firecrawl_search`
+  returns whole pages for several results at once (35–47 KB on Q1/Q4/Q6/Q8).
+- **Latency: C wins outright** (13.7s vs 19.9s vs 27.6s, whole-session).
+
+**Verdict: the plan's "expected result".** Context7 first, always. The
+mirror belongs only to docs Context7 doesn't cover, where it beats live
+Firecrawl by ~2× on both tokens and latency.
+
+### Why Context7 wins on tokens, structurally
+
+Context7 returns *selected passages*; `library_read` returns *whole pages*.
+The vault's unit of retrieval is the file, and `library_read` has no
+section/range option, so its cost is "how big is the page" - 42 KB on Q8
+(two reads: `column-types.md` 31 KB + `sql-schema-declaration.md` 13 KB).
+Nothing in the crawler can fix that from the client side except splitting
+pages into smaller files (e.g. one per H2) at crawl time. That is a Stage-1
+question and only worth asking for the non-Context7 niche.
+
+### The routing gap (found while building the harness)
+
+In a fresh session with **no hint**, the model never looked in the vault. It
+ran ToolSearch for `context7`, `firecrawl`, `WebFetch`, `fetch url`, `search
+web` - six tries - and gave up, because the deferred `library_*` tool names
+say nothing about documentation and the global `WEB_TOOLS` block never
+mentions the vault. Arm C fails before retrieval starts. The measurement
+above gives every arm a symmetric one-line hint naming its tools; without
+one, arm C scores 0/8 on this design. If the mirror is built for the
+non-Context7 niche, the `WEB_TOOLS` block must name the vault as a doc
+source and say when to prefer it over Firecrawl - the "routing lines" the
+plan deferred are not optional.
+
+## Follow-up conditions not covered here
+
+- Dialect-duplicate stress: re-crawl **with** the 5 dialect subtrees (546
+  near-duplicate pages) and re-run the same 8 questions. This is the
+  disambiguation test the plan assigned to shadcn/ui.
+- A second Drizzle version alongside, to confirm path-only disambiguation.
