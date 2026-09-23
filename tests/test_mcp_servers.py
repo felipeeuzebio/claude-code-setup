@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pytest
 
-from claude_code_setup.mcpservers import REPO_ROOT
+from claude_code_setup.mcp.servers import REPO_ROOT
 
 CHROME_PORT = 9223
 

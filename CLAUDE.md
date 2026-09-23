@@ -18,7 +18,10 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
   - `__init__.py` - package marker, nothing else
   - `main.py` - orchestration spine (`main()`), what `uv run setup` (a `[project.scripts]` entry, `claude_code_setup.main:main`) calls
   - `mcptest` lives in `tests/`, not here - it's test code, not part of the shipped tool
-  - everything else (`ui.py`, `envfile.py`, `mcpservers.py`, `mcpconfig.py`, `sysinfo.py`, `claudemd.py`, `bifrost.py`) is internal-only: plain functions `main.py` imports, no standalone entry point
+  - `core/` - helpers every step uses: `ui.py` (terminal output), `envfile.py` (`.env` parsing), `sysinfo.py` (tool detection)
+  - `mcp/` - `servers.py` (loads `mcp-servers.json`, defines `REPO_ROOT`) and `config.py` (merges ready servers into `~/.claude.json`)
+  - `claudemd.py`, `bifrost.py` - the CLAUDE.md and Bifrost steps
+  - everything except `main.py` is internal-only: plain functions `main.py` imports, no standalone entry point
 - `tests/` - `pytest` suite, a package (`uv run pytest`): `test_envfile.py`/`test_mcpconfig.py`/`test_claudemd.py` are fast fixture-based unit tests; `test_mcp_servers.py` + `conftest.py` are the live MCP integration suite, marked `integration` (`uv run pytest -m "not integration"` skips it)
 - `mcp-servers.json` (root) - standalone MCP server definitions (GitHub, Context7, browser-use, Lightpanda's native MCP server, Codegraph, dbx)
 - `.env.example` - secrets/flags `setup` reads
@@ -52,10 +55,10 @@ After changing anything in this repo:
 ## Conventions
 
 - Commit messages must pass `githooks/commit-msg`: `type: concise summary` (Conventional Commits: feat/fix/refactor/docs/test/chore/perf/ci, ≤72 chars), optional body where every line is a `- ` bullet or a `Token: value` trailer. This hook is enforced locally via `core.hooksPath githooks`, set up by `setup.sh`/`setup.ps1`.
-- `.env` (gitignored, copy from `.env.example`) is read by `src/claude_code_setup/envfile.py` line-by-line as plain key/value pairs, never evaluated as shell/Python — preserves spaces/backslashes in values like Windows paths.
+- `.env` (gitignored, copy from `.env.example`) is read by `src/claude_code_setup/core/envfile.py` line-by-line as plain key/value pairs, never evaluated as shell/Python — preserves spaces/backslashes in values like Windows paths.
 - MCP servers are only written into `~/.claude.json` once their required secret is actually present and valid (e.g. `GITHUB_TOKEN`) — a placeholder or invalid entry is worse than a server that's just not registered yet; missing pieces are listed at the end of the run instead.
 - `setup` maintains a marker-delimited (`<!-- WEB_TOOLS_START -->`) block in the user's global `~/.claude/CLAUDE.md` routing web lookups: built-in WebSearch/WebFetch first, Context7 for library docs, Lightpanda/browser-use only as escalation (order measured in `bench/`). Only the block is rewritten, and only servers that actually registered get a bullet — see `AGENTS.md` before changing the wording or the gating.
-- Terminal output goes through `src/claude_code_setup/ui.py` (built on `rich`) — colored ok/skip/warn/step lines, a spinner, a y/n confirm, Markdown rendering. No external binary (gum was dropped entirely during the Python rewrite).
+- Terminal output goes through `src/claude_code_setup/core/ui.py` (built on `rich`) — colored ok/skip/warn/step lines, a spinner, a y/n confirm, Markdown rendering. No external binary (gum was dropped entirely during the Python rewrite).
 - Setup is idempotent — safe to re-run `./setup.sh`/`.ps1` after adding one more secret to `.env`; it's also the only way to re-check tool status or re-merge MCP config now (no separate standalone commands for those).
 - For the reasoning behind specific tool/server choices (Bifrost vs. alternatives, Codegraph vs. Graphify, why there's no Obsidian vault tool yet, browser-use's `--cli-mcp` mode, etc.), see `AGENTS.md` before changing them — several were arrived at after ruling out non-obvious failure modes.
 
@@ -66,5 +69,5 @@ After changing anything in this repo:
 - Don't write an MCP server entry into a config with a placeholder/missing secret — skip it and surface the gap in the run summary instead.
 - Don't re-add Firecrawl (or any scraping server) to the default web-tool path on the strength of features — it was removed on measurement (`bench/web_tools`, `AGENTS.md`); a new server earns a `WEB_TOOLS` bullet by beating the built-ins on a bench, and Firecrawl Cloud, if ever wanted, goes in gated on `FIRECRAWL_API_KEY` like every other secret-bearing server.
 - Don't wrap install/status commands in `ui.spin()` if they might need interactive input (e.g. a sudo prompt) — the spinner would hide the prompt on a TTY; run those directly and let output flow through instead.
-- Don't add a standalone entry point for `sysinfo.py`, `mcpconfig.py`, `claudemd.py`, or `bifrost.py` — they're deliberately internal-only, called by `setup`'s `main()`. Only `setup` itself and the `tests/` suite are meant to be run directly.
+- Don't add a standalone entry point for `core/sysinfo.py`, `mcp/config.py`, `claudemd.py`, or `bifrost.py` — they're deliberately internal-only, called by `setup`'s `main()`. Only `setup` itself and the `tests/` suite are meant to be run directly.
 - Don't put dynamic/interpolated text straight into a `ui.console.print(...)` call without `rich.markup.escape()` — `Console.print` treats `[...]` as style markup by default, so literal brackets (e.g. `browser-use[cli]`) silently vanish otherwise. `ui.ok`/`warn`/`skip`/`step`/`ok_ver`/`confirm` already escape internally; only raw `ui.console.print()` calls need it explicitly.

@@ -15,8 +15,8 @@ from pathlib import Path
 
 from rich.markup import escape
 
-from claude_code_setup import ui
-from claude_code_setup.mcpservers import REPO_ROOT
+from claude_code_setup.core import ui
+from claude_code_setup.mcp.servers import REPO_ROOT
 
 PROMPT_FILE = REPO_ROOT / "CLAUDE_TEMPLATE.md"
 CLAUDE_MD = REPO_ROOT / "CLAUDE.md"

@@ -23,9 +23,11 @@ from pathlib import Path
 
 from rich.markup import escape
 
-from claude_code_setup import bifrost, claudemd, mcpconfig, sysinfo, ui
-from claude_code_setup.envfile import apply_env, load_env
-from claude_code_setup.mcpservers import REPO_ROOT
+from claude_code_setup import bifrost, claudemd
+from claude_code_setup.core import sysinfo, ui
+from claude_code_setup.core.envfile import apply_env, load_env
+from claude_code_setup.mcp import config as mcp_config
+from claude_code_setup.mcp.servers import REPO_ROOT
 
 _SHELL = sys.platform == "win32"
 
@@ -251,7 +253,7 @@ def main() -> None:
     claudemd.ensure_claude_md()
 
     ui.step("Registering MCP servers into ~/.claude.json")
-    registered = mcpconfig.merge_and_write(env=dict(os.environ))
+    registered = mcp_config.merge_and_write(env=dict(os.environ))
 
     ui.step("Web/browser tool guidance in ~/.claude/CLAUDE.md")
     claudemd.ensure_web_tools_guidance(registered, env=dict(os.environ), ask=sys.stdin.isatty())

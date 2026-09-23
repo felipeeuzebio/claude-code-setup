@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from claude_code_setup.mcpconfig import build_plan, merge_and_write
+from claude_code_setup.mcp.config import build_plan, merge_and_write
 
 
 def test_context7_always_ready() -> None:

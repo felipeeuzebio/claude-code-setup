@@ -1,6 +1,6 @@
 """Shared loader for mcp-servers.json - the source-of-truth MCP server list.
 
-Used by both mcpconfig.py (merging ready servers into ~/.claude.json) and
+Used by both mcp/config.py (merging ready servers into ~/.claude.json) and
 tests/test_mcp_servers.py (checking which servers this repo manages).
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[3]
 SOURCE_PATH = REPO_ROOT / "mcp-servers.json"
 
 

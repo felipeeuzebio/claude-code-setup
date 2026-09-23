@@ -17,7 +17,7 @@ from typing import cast
 
 import pytest
 
-from claude_code_setup.mcpservers import REPO_ROOT, load_managed_servers
+from claude_code_setup.mcp.servers import REPO_ROOT, load_managed_servers
 
 CLAUDE_CONFIG = Path.home() / ".claude.json"
 CHROME_PORT = 9223
