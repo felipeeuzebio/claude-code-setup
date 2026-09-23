@@ -1,20 +1,20 @@
-# Web tools: Firecrawl / Lightpanda / browser-use vs built-in WebSearch & WebFetch
+# Web tools: Firecrawl, Lightpanda and browser-use vs built-in WebSearch/WebFetch
 
-Date: 2026-09-16. The global `WEB_TOOLS` block (written by `setup` into
-`~/.claude/CLAUDE.md`) tells Claude to prefer the registered MCP servers over
-the built-in WebSearch/WebFetch. This measures whether that's right, on the
-task kinds the block routes between them. Harness: `webtools.py`, same
-`claude -p` technique as `docs_retrieval/` (model: sonnet, one arm's tools
-per session, everything else denied).
+Date: 2026-09-16. `setup` writes a global `WEB_TOOLS` block into
+`~/.claude/CLAUDE.md` that tells Claude to prefer the registered MCP servers
+over the built-in WebSearch/WebFetch. This bench checks whether that's right
+for the kinds of task the block routes between them. The harness is
+`webtools.py`, using the same `claude -p` technique as `docs_retrieval/`:
+model sonnet, one arm's tools per session, everything else denied.
 
 ## Arms
 
 | Arm | Tools allowed | Runs the search tasks? |
 |---|---|---|
-| Built-in WebSearch/WebFetch | `WebSearch`, `WebFetch` - no MCP servers at all | yes |
+| Built-in WebSearch/WebFetch | `WebSearch`, `WebFetch` (no MCP servers at all) | yes |
 | Firecrawl | `firecrawl_search`, `firecrawl_scrape`, `firecrawl_map`, `firecrawl_crawl` (self-hosted at `FIRECRAWL_API_URL`) | yes |
-| Lightpanda | `markdown`, `goto`, `tree`, `extract`, `evaluate`, `links`, ... (native `lightpanda mcp`) | no - no search tool |
-| browser-use | `browser_exec` against a headless Chromium on port 9223 | no - no search tool |
+| Lightpanda | `markdown`, `goto`, `tree`, `extract`, `evaluate`, `links`, ... (native `lightpanda mcp`) | no (no search tool) |
+| browser-use | `browser_exec` against a headless Chromium on port 9223 | no (no search tool) |
 
 ## Tasks
 
@@ -27,8 +27,8 @@ per session, everything else denied).
 | T5 | static fetch | Author of the first quote on https://quotes.toscrape.com/page/2/ | `Marilyn Monroe` |
 | T6 | crawl | Follow "Next" from https://quotes.toscrape.com/ to the last page | `/page/10/` |
 
-A session counts as correct only if the regex matches **and** the arm's own
-tool was called at least once - an answer from memory scores 0. Every session
+A session counts as correct only if the regex matches and the arm's own tool
+was called at least once, so an answer from memory scores 0. Every session
 below did call its tool. 20 sessions in all (6 + 6 + 4 + 4).
 
 ## Correctness
@@ -45,27 +45,28 @@ below did call its tool. 20 sessions in all (6 + 6 + 4 + 4).
 
 Two scoring caveats, both my fault as the task author, not the tools':
 
-- **T4, built-in: a false regex pass.** The answer contains `COUNT=10`, but
-  the model said in the same breath that "WebFetch can't execute JavaScript,
-  so it can't directly confirm the JS-rendered count" and inferred 10 from
-  the non-JS page - after 6 WebFetch/WebSearch calls and 51 s. On the thing
-  T4 measures (can this arm see a JS-rendered page?) that is a failure, and
-  the table scores it as one.
-- **T2 is inconclusive.** Two unrelated projects are named `librarian-mcp`.
-  The built-in arm found both and asked which one was meant; Firecrawl
-  returned the other one. The task was underspecified, so T2 is excluded
-  from the totals.
+- T4 on the built-in arm is a false regex pass. The answer contains
+  `COUNT=10`, but in the same breath the model said "WebFetch can't execute
+  JavaScript, so it can't directly confirm the JS-rendered count", and it
+  inferred 10 from the non-JS page after 6 WebFetch/WebSearch calls and 51 s.
+  T4 measures whether an arm can see a JS-rendered page, so this is a
+  failure, and the table scores it as one.
+- T2 is inconclusive. Two unrelated projects are named `librarian-mcp`. The
+  built-in arm found both and asked which one was meant; Firecrawl returned
+  the other one. The task was underspecified, so T2 is left out of the
+  totals.
 
-And one design flaw: **T6 did not measure crawling.** quotes.toscrape.com is
-a well-known scraping sandbox and every arm jumped straight to `/page/10/`
-and verified it had no Next link - one call for Firecrawl and Lightpanda,
-three WebFetch calls for built-in (pages 1, 10 and 11). A real multi-page
-test needs a site the model has never seen.
+There was also a design flaw: T6 did not measure crawling.
+quotes.toscrape.com is a well-known scraping sandbox, and every arm jumped
+straight to `/page/10/` and checked that it had no Next link. That took one
+call for Firecrawl and Lightpanda, and three WebFetch calls for built-in
+(pages 1, 10 and 11). A real multi-page test needs a site the model has
+never seen.
 
 ## Tool output per session, bytes
 
-Bytes every tool result put into the session - the tokens-into-context
-proxy (~4 bytes per token). Bold = cheapest arm on that task.
+The bytes that every tool result put into the session, as a proxy for tokens
+into context (~4 bytes per token). Bold marks the cheapest arm on each task.
 
 | Task | Built-in WebSearch/WebFetch | Firecrawl | Lightpanda | browser-use |
 |---|---|---|---|---|
@@ -77,18 +78,19 @@ proxy (~4 bytes per token). Bold = cheapest arm on that task.
 | T6 | **340** | 2,780 | 3,755 | 748 |
 | **Median** | **1,186** | **2,552** | **2,182** | **15** |
 
-Why the built-in and browser-use numbers are so small: `WebFetch` does not
-return the page, it returns a side-model **summary** of it (53 bytes for
-example.com), and `browser_exec` returns only what the generated Python
-`print`s. Firecrawl and Lightpanda return the page itself as markdown.
-For WebFetch, cheap is also lossy - fine for a heading or a name, untested
-here for verbatim code or config values.
+The built-in and browser-use numbers are small because `WebFetch` returns a
+side-model summary of the page (53 bytes for example.com), and `browser_exec`
+returns only what the generated Python `print`s. Firecrawl and Lightpanda
+return the page itself as markdown. For WebFetch, cheap also means lossy.
+That's fine for a heading or a name; this run didn't test verbatim code or
+config values.
 
-Bytes-in is only part of the bill, so the session's own `usage` (from the
-`result` event) is below. Output tokens are what Claude wrote - including
-the Python every `browser_exec` call carries in its *input*, which the bytes
-table can't see. Cached input tokens are the system prompt + tool schemas +
-global CLAUDE.md re-read on every turn (~100k per turn here).
+Bytes in are only part of the bill, so the tables below come from the
+session's own `usage` in the `result` event. Output tokens are what Claude
+wrote, and that includes the Python each `browser_exec` call carries in its
+input, which the bytes table can't see. Cached input tokens are the system
+prompt, tool schemas and global CLAUDE.md, re-read on every turn (~100k per
+turn here).
 
 ### Output tokens per session
 
@@ -114,17 +116,18 @@ global CLAUDE.md re-read on every turn (~100k per turn here).
 | T6 | 191k | 105k | 105k | **103k** |
 | **Median** | **126k** | **105k** | **128k** | **103k** |
 
-Two things fall out. browser-use's Python is short: its output tokens sit
-with Lightpanda's and Firecrawl's, so the 3–15 B results are cheap for real,
-not an artifact. And **turn count dominates total tokens**: built-in T4's six
-calls re-read 333k cached tokens against ~104k for any one-call arm. A few
-KB more or less of tool output is noise next to one extra turn.
+Two things stand out. browser-use's Python is short: its output tokens are in
+line with Lightpanda's and Firecrawl's, so its 3-15 B results really are
+cheap. And turn count drives the token total. Built-in T4's six calls re-read
+333k cached tokens, against ~104k for any arm that got there in one call. A
+few KB of tool output either way is noise next to one extra turn.
 
 ## Session wall-clock, s
 
-Whole `claude -p` session including startup. Bold = fastest arm on that
-task. browser-use ran one session at a time (it shares the one Chromium);
-the other arms ran three in parallel, which may inflate theirs slightly.
+The whole `claude -p` session, startup included. Bold marks the fastest arm
+on each task. browser-use ran one session at a time because they all share
+one Chromium; the other arms ran three in parallel, which may inflate their
+times slightly.
 
 | Task | Built-in WebSearch/WebFetch | Firecrawl | Lightpanda | browser-use |
 |---|---|---|---|---|
@@ -150,30 +153,31 @@ the other arms ran three in parallel, which may inflate theirs slightly.
 
 ## Reading it
 
-- **Static page (T3, T5): built-in WebFetch wins on both axes.** 8.5–9 s and
-  under 200 bytes against Firecrawl's 11–15 s and 0.6–7.5 KB. Lightpanda is
-  the closest MCP option (9–12 s, 169 B–1 KB). For "read this one public page",
-  the `WEB_TOOLS` block's current "prefer Firecrawl for scraping" wording is
-  over-broad.
-- **JS-rendered page (T4): the built-in arm cannot do it**, and spent 6 calls,
-  51 s and 333k cached tokens finding that out. All three MCP arms answered in 10–16 s with one
-  or two calls. This is the case the block exists for, confirmed.
-- **Search (T1): a wash.** WebSearch 2.0 KB / 13 s vs `firecrawl_search`
-  2.7 KB / 19 s, both correct. No reason to route plain search away from the
-  built-in on this evidence.
-- **Crawl: unmeasured** (see T6 above).
-- **browser-use** is genuinely cheapest in tokens (3–748 bytes in, output
-  tokens level with the others), and 10–18 s per session is competitive
-  despite Chromium startup. It's the right tool for
-  interaction and logged-in sessions, which this bench did not exercise; for
-  a plain fetch Lightpanda gets the same answer with less machinery.
+- Static page (T3, T5): built-in WebFetch is both faster and cheaper, at
+  8.5-9 s and under 200 bytes against Firecrawl's 11-15 s and 0.6-7.5 KB.
+  Lightpanda is the closest MCP option (9-12 s, 169 B to 1 KB). For reading
+  one public page, the `WEB_TOOLS` block's current "prefer Firecrawl for
+  scraping" wording is too broad.
+- JS-rendered page (T4): the built-in arm can't do it, and it spent 6 calls,
+  51 s and 333k cached tokens finding that out. All three MCP arms answered
+  in 10-16 s with one or two calls. This is the case the block was written
+  for, and the MCP servers handle it.
+- Search (T1): no clear winner. WebSearch used 2.0 KB and 13 s,
+  `firecrawl_search` 2.7 KB and 19 s, and both were right. Nothing here
+  argues for routing plain search away from the built-in.
+- Crawl: not measured (see T6 above).
+- browser-use is the cheapest in tokens (3-748 bytes in, output tokens level
+  with the others), and 10-18 s per session holds up despite Chromium
+  startup. It's the tool for interaction and logged-in sessions, which this
+  bench didn't exercise. For a plain fetch, Lightpanda gets the same answer
+  with less machinery.
 
-**Verdict:** the built-in tools are the right *first* choice for a single
-static page or a plain search; the MCP servers earn their place the moment
-the page needs JavaScript, and there the choice between them is Lightpanda
-(cheapest to run) unless real interaction is needed (browser-use) or the
-result must be the full page as markdown / a multi-page crawl (Firecrawl).
-The `WEB_TOOLS` block should say that order, not the reverse.
+Verdict: use the built-in tools first for a single static page or a plain
+search. The MCP servers are worth it once the page needs JavaScript. Among
+them, Lightpanda is the default because it's cheapest to run; switch to
+browser-use when the task needs real interaction, or Firecrawl when you need
+the full page as markdown or a multi-page crawl. The `WEB_TOOLS` block should
+list them in that order, which is the reverse of what it says now.
 
 ## Follow-ups not covered here
 
@@ -183,8 +187,8 @@ The `WEB_TOOLS` block should say that order, not the reverse.
 
 ## Verbatim follow-up (`verbatim.py`, 2026-09-16)
 
-The open risk above: WebFetch returns a *summary*, so does it paraphrase when
-the task is "quote this exactly"? Four tasks, each verbatim, matched
+The risk left open above: WebFetch returns a summary, so does it paraphrase
+when the task is "quote this exactly"? Four verbatim tasks, each matched
 case-sensitively against strings read off the live pages with curl:
 
 | ID | Task | Must contain |
@@ -194,11 +198,11 @@ case-sensitively against strings read off the live pages with curl:
 | V3 | First `await tx.update(...)` line on orm.drizzle.team/docs/transactions | ``update(accounts).set({ balance: sql`${accounts.balance} - 100.00` }).where(eq(users.name, 'Dan'))`` |
 | V4 | Default + four possible values of `python-preference` on docs.astral.sh/uv/reference/settings/ (a 420 KB page) | `"only-managed"`, `"managed"`, `"system"`, `"only-system"` |
 
-**Correctness: 12/12.** Every arm reproduced every string exactly - the
-Neruda quote, the template literal with `${...}` and backticks, the quoted
-TOML values. WebFetch did not paraphrase once. Its "summary" is generated
+Correctness: 12/12. Every arm reproduced every string exactly, including the
+Neruda quote, the template literal with `${...}` and backticks, and the
+quoted TOML values. WebFetch never paraphrased. Its "summary" is generated
 from the prompt Claude passes it, so when the prompt says "quote this
-verbatim" that is what comes back.
+verbatim", that's what comes back.
 
 ### Tool output per session, bytes
 
@@ -238,24 +242,25 @@ verbatim" that is what comes back.
 
 ### Reading it
 
-- **WebFetch's summary is not lossy when the ask is precise.** 4/4 verbatim
-  at 223-546 bytes and 13-22 s. The block's "built-ins first for a single
-  page" holds for exact-content lookups too. The remaining caveat is the
-  case not tested: a vague ask ("what does this page say about X") where
-  the summariser decides what matters.
-- **The 420 KB page (V4) is where the whole-page tools broke.** Firecrawl
-  scraped it, hit what looks like a truncated payload (4 tool errors), and
-  thrashed: 22 MCP calls across scrape/search/map/developer_search/
-  research_search_github, 228 s, 12,760 output tokens, 2.1M cached tokens -
-  ~20x any other session in either bench. Lightpanda's `markdown` also
-  couldn't take the page whole; it recovered via `tree` + `evaluate` in 4
-  calls / 23 s / 338k. WebFetch: one call, 546 bytes, 14 s. On a long
-  reference page the summariser is the right tool, not the workaround.
-- Firecrawl and Lightpanda returned identical bytes on V2 (23.7 KB - the
-  whole GitHub README page): for exact content they cost the full page
-  every time, WebFetch costs the answer.
+- WebFetch's summary stays exact when the ask is precise: 4/4 verbatim at
+  223-546 bytes and 13-22 s. So the block's "built-ins first for a single
+  page" holds for exact-content lookups too. The case still untested is a
+  vague ask ("what does this page say about X"), where the summariser
+  decides what matters.
+- The 420 KB page (V4) is where the whole-page tools broke. Firecrawl scraped
+  it, hit what looks like a truncated payload (4 tool errors), and thrashed:
+  22 MCP calls across scrape/search/map/developer_search/
+  research_search_github, 228 s, 12,760 output tokens and 2.1M cached
+  tokens, about 20x any other session in either bench. Lightpanda's
+  `markdown` couldn't take the page whole either; it recovered through
+  `tree` + `evaluate` in 4 calls, 23 s and 338k. WebFetch needed one call,
+  546 bytes and 14 s. On a long reference page, the summariser is the tool
+  to reach for.
+- Firecrawl and Lightpanda returned the same bytes on V2 (23.7 KB, the whole
+  GitHub README page). For exact content they cost the full page every time,
+  while WebFetch costs only the answer.
 
-**Verdict, with this added:** the removal stands, and the case is stronger
-than the council had - the untested risk (WebFetch lossiness) did not
-materialise, and the one scenario where Firecrawl was expected to shine
-(a big page) is where it did worst.
+Verdict with this added: the removal stands, on a stronger case than the
+council had. The untested risk (WebFetch being lossy) didn't show up, and
+the one scenario where Firecrawl was expected to shine, a big page, is where
+it did worst.
