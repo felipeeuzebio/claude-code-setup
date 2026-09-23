@@ -211,7 +211,7 @@ to be running):
 ## setup: skip rather than write broken entries
 
 **2026-09 update:** `setup.sh`/`setup.ps1` are now thin wrappers around a
-`uv`-managed Python package (`src/setup/`) - see `CLAUDE.md` for the
+`uv`-managed Python package (`src/claude_code_setup/`) - see `CLAUDE.md` for the
 current structure. The reasoning below still holds; only the file paths
 it names have moved.
 
@@ -237,7 +237,7 @@ Two things this rule had to be tightened for:
   real bash: an unquoted value with a space (a Windows-style
   `OBSIDIAN_VAULT_PATH=C:\Users\you\Documents\My Vault`) gets word-split,
   and backslashes get interpreted as shell escapes and silently stripped.
-  This is exactly why `src/setup/envfile.py` never evaluates `.env` as
+  This is exactly why `src/claude_code_setup/envfile.py` never evaluates `.env` as
   shell/Python - it's a plain line-by-line parser that only strips one
   matching layer of quotes, preserving everything else byte-for-byte.
 
@@ -354,7 +354,7 @@ outweighs several KB of tool output; compare arms on calls first.
 Originally, `setup.sh`/`setup.ps1` styled their output with
 [gum](https://github.com/charmbracelet/gum), strictly as a cosmetic layer.
 During the 2026-09 Python rewrite, gum was dropped entirely in favor of
-`rich` (`src/setup/ui.py`) - no external binary, no download/temp-dir
+`rich` (`src/claude_code_setup/ui.py`) - no external binary, no download/temp-dir
 lifecycle, and it restores Markdown rendering for the `CLAUDE_TEMPLATE.md`
 prompt display that the plain fallback below couldn't do. The bullets
 below describe the retired bash/PowerShell behavior for historical

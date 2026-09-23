@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from setup.envfile import load_env
+from claude_code_setup.envfile import load_env
 
 
 def _write(tmp_path: Path, content: str) -> Path:

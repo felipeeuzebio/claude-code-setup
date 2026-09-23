@@ -72,7 +72,7 @@ them out. `AGENTS.md` explains why and `bench/` has the measurements.
 ```
 install.sh, install.ps1   one-line installers
 setup.sh, setup.ps1       run `uv run setup`
-src/setup/                the setup code (Python)
+src/claude_code_setup/    the setup code (Python)
 tests/                    pytest suite
 mcp-servers.json          MCP server definitions
 CLAUDE_TEMPLATE.md        prompt for generating a CLAUDE.md

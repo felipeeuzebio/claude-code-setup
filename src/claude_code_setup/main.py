@@ -23,9 +23,9 @@ from pathlib import Path
 
 from rich.markup import escape
 
-from setup import bifrost, claudemd, mcpconfig, sysinfo, ui
-from setup.envfile import apply_env, load_env
-from setup.mcpservers import REPO_ROOT
+from claude_code_setup import bifrost, claudemd, mcpconfig, sysinfo, ui
+from claude_code_setup.envfile import apply_env, load_env
+from claude_code_setup.mcpservers import REPO_ROOT
 
 _SHELL = sys.platform == "win32"
 

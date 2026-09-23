@@ -17,8 +17,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from setup.envfile import apply_env, load_env
-from setup.mcpservers import REPO_ROOT
+from claude_code_setup.envfile import apply_env, load_env
+from claude_code_setup.mcpservers import REPO_ROOT
 
 # Built-ins that could answer a bench prompt without the arm's tools. Benches
 # that measure WebFetch/WebSearch themselves drop those two from the list.

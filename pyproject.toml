@@ -1,5 +1,5 @@
 [project]
-name = "setup"
+name = "claude-code-setup"
 version = "0.1.0"
 description = "Claude Code environment bootstrap: MCP server registration, tool checks, Bifrost bring-up"
 requires-python = ">=3.11"
@@ -8,7 +8,7 @@ dependencies = [
 ]
 
 [project.scripts]
-setup = "setup:main"
+setup = "claude_code_setup.main:main"
 
 [build-system]
 requires = ["hatchling"]

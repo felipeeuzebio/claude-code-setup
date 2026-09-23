@@ -8,8 +8,8 @@ import sys
 
 import pytest
 
-from setup import claudemd
-from setup.claudemd import (
+from claude_code_setup import claudemd
+from claude_code_setup.claudemd import (
     REFRESH_LEAD,
     WEB_TOOLS_END,
     WEB_TOOLS_START,

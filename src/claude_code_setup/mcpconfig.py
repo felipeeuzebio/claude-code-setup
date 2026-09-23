@@ -18,8 +18,8 @@ from typing import Callable
 
 from rich.markup import escape
 
-from setup import ui
-from setup.mcpservers import load_managed_servers
+from claude_code_setup import ui
+from claude_code_setup.mcpservers import load_managed_servers
 
 Server = dict
 Fill = Callable[[Server], Server]
