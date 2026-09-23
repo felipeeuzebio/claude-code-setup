@@ -11,7 +11,7 @@ Setup (all on a copy, never the real vault - adopt/save write to it):
   cp -r "VAULT/Indexed Docs/drizzle" VAULT/wiki/sources/     (index covers wiki/ only)
   python3 PLUGIN/scripts/contextual-prefix.py --vault VAULT --all --no-llm
   python3 PLUGIN/scripts/bm25-index.py --vault VAULT build
-Run: uv run python bench/vault_plugin/trial.py [q4 q7 save q-saved cross]
+Run: uv run python -m bench.vault_plugin.trial [q4 q7 save q-saved cross]
 Results: results.md next to this file; raw sessions in trial.jsonl (gitignored).
 """
 import json, os, subprocess, sys, tempfile, time

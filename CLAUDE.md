@@ -18,13 +18,13 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
   - `__init__.py` - orchestration spine (`main()`), what `uv run setup` (a `[project.scripts]` entry) calls
   - `mcptest` lives in `tests/`, not here - it's test code, not part of the shipped tool
   - everything else (`ui.py`, `envfile.py`, `mcpservers.py`, `mcpconfig.py`, `sysinfo.py`, `claudemd.py`, `bifrost.py`) is internal-only: plain functions `__init__.py` imports, no standalone entry point
-- `tests/` - `pytest` suite (`uv run pytest`): `test_envfile.py`/`test_mcpconfig.py`/`test_claudemd.py` are fast fixture-based unit tests; `test_mcp_servers.py` + `conftest.py` are the live MCP integration suite, marked `integration` (`uv run pytest -m "not integration"` skips it)
+- `tests/` - `pytest` suite, a package (`uv run pytest`): `test_envfile.py`/`test_mcpconfig.py`/`test_claudemd.py` are fast fixture-based unit tests; `test_mcp_servers.py` + `conftest.py` are the live MCP integration suite, marked `integration` (`uv run pytest -m "not integration"` skips it)
 - `mcp-servers.json` (root) - standalone MCP server definitions (GitHub, Context7, browser-use, Lightpanda's native MCP server, Codegraph, dbx)
 - `.env.example` - secrets/flags `setup` reads
 - `CLAUDE_TEMPLATE.md` (root) - reusable `CLAUDE.md`-generation prompt, starter structure embedded, that `setup` offers to run via `claude -p` (generate if missing, refresh after a y/n if present; no `--model` pin, the user's default model is the point)
 - `githooks/commit-msg` - Conventional Commits enforcement hook (plain bash, out of scope of the Python package), wired via `git config core.hooksPath githooks`
 - `AGENTS.md` (root) - why things are configured the way they are; read before changing MCP server choices or script behavior
-- `bench/` - the measurements behind those choices: `harness.py` (shared `claude -p` session runner) plus one folder per bench with its harness and a `results.md` write-up. Not part of `pytest`; run as `uv run python -m bench.<folder>.<script>`, costs real tokens
+- `bench/` - the measurements behind those choices, as a package: `harness.py` (shared `claude -p` session runner) plus one subpackage per bench with its harness and a `results.md` write-up. Not part of `pytest`; run as `uv run python -m bench.<folder>.<script>`, costs real tokens
 
 ## Commands
 
@@ -36,7 +36,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 - Just the MCP integration suite: `uv run pytest -m integration` (or `-k <name>` for one case; `-n N` for concurrency via `pytest-xdist`; `--model`/`--mcp-timeout` to override defaults; `--collect-only -q` to list cases)
 - There's no standalone "just verify tools" or "just re-merge config" command any more - re-run `./setup.sh` (idempotent) instead
 - No build step and no linter configured yet — `pyproject.toml` has no `[project.scripts]` beyond `setup`, and nothing here is published or installed elsewhere
-- Benches: `uv run python -m bench.web_tools.webtools`, `uv run python -m bench.docs_retrieval.threearm`, `uv run python bench/vault_plugin/trial.py` — each runs ~20 live `claude -p` sessions, takes minutes, costs real tokens; see `bench/README.md`
+- Benches: `uv run python -m bench.web_tools.webtools`, `uv run python -m bench.docs_retrieval.threearm`, `uv run python -m bench.vault_plugin.trial` — each runs ~20 live `claude -p` sessions, takes minutes, costs real tokens; see `bench/README.md`
 
 ## Verification
 

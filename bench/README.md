@@ -11,7 +11,7 @@ root:
 
     uv run python -m bench.docs_retrieval.threearm
     uv run python -m bench.web_tools.webtools
-    uv run python bench/vault_plugin/trial.py   # needs the scratch copies in its docstring
+    uv run python -m bench.vault_plugin.trial   # needs the scratch copies in its docstring
 
 - `docs_retrieval/`: the vault mirror, Context7 and live Firecrawl, each asked
   the same 8 Drizzle questions. Result: use Context7 first. The mirror only
