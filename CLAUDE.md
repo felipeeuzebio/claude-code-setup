@@ -13,6 +13,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 ## Structure
 
 - `setup.sh` / `setup.ps1` - thin wrappers: check `uv` is present, `exec uv run setup`
+- `install.sh` / `install.ps1` - one-line bootstraps (`curl … | bash` / `irm … | iex`): install `uv` if missing, download the repo tarball/zip from GitHub into `~/.claude-code-setup` (keeping its `.env`/`.codegraph/` across re-runs, leaving a git checkout alone), then run `setup.sh`/`setup.ps1`. The repo slug is hardcoded in both
 - `src/setup/` - the actual logic, a `uv`-managed packaged app:
   - `__init__.py` - orchestration spine (`main()`), what `uv run setup` (a `[project.scripts]` entry) calls
   - `mcptest` lives in `tests/`, not here - it's test code, not part of the shipped tool
@@ -29,6 +30,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 
 - Run setup (Linux/WSL2/macOS): `./setup.sh`
 - Run setup (native Windows): `./setup.ps1`
+- One-line install, no clone: `curl -fsSL https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.sh | bash` / `irm https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.ps1 | iex`
 - Run the whole test suite (fast unit tests + live MCP integration suite): `uv run pytest`
 - Fast subset only (no network, no tokens spent): `uv run pytest -m "not integration"`
 - Just the MCP integration suite: `uv run pytest -m integration` (or `-k <name>` for one case; `-n N` for concurrency via `pytest-xdist`; `--model`/`--mcp-timeout` to override defaults; `--collect-only -q` to list cases)
@@ -42,8 +44,9 @@ After changing anything in this repo:
 
 1. For changes under `src/setup/` or `tests/`: run `uv run pytest -m "not integration"` (fast) and, when touching MCP registration/test logic specifically, the full `uv run pytest` (costs tokens, drives real `claude -p` sessions)
 2. Re-run `./setup.sh`/`./setup.ps1` end-to-end against a scratch copy of the repo when a change touches installs or `~/.claude.json` — never against the real checkout, since e.g. `codegraph init` and MCP registration mutate real local state
-3. For `githooks/commit-msg` changes (a plain bash script, untouched by the Python rewrite), hand-test both an accepting and a rejecting commit message before relying on it
-4. When adding a case to `tests/test_mcp_servers.py`, prove it can fail: point the server entry at a nonexistent binary and confirm it reports FAIL, not PASS/SKIP. Several prompts are answerable from the model's own knowledge, so a case that never fails is testing nothing
+3. For `install.sh`/`install.ps1` changes: run a copy with the final `setup` call stubbed out and `CLAUDE_CODE_SETUP_DIR` pointed at a scratch dir, piped through `bash`/`iex` (that's how users run them), twice - the second run must keep `.env`
+4. For `githooks/commit-msg` changes (a plain bash script, untouched by the Python rewrite), hand-test both an accepting and a rejecting commit message before relying on it
+5. When adding a case to `tests/test_mcp_servers.py`, prove it can fail: point the server entry at a nonexistent binary and confirm it reports FAIL, not PASS/SKIP. Several prompts are answerable from the model's own knowledge, so a case that never fails is testing nothing
 
 ## Conventions
 
