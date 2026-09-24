@@ -5,7 +5,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 ## Stack
 
 - Python, run via `uv` (`uv run setup`) — no separate Python install needed, `uv` manages the interpreter
-- `rich` is the one runtime dependency (styled terminal output); `pytest` + `pytest-xdist` are dev-only
+- Two runtime dependencies: `rich` (styled terminal output) and `questionary` (the arrow-key menu, on prompt_toolkit); `pytest` + `pytest-xdist` are dev-only
 - Bash (`setup.sh`, `githooks/commit-msg`) for Linux/WSL2/macOS — both are thin, `githooks/commit-msg` is a standalone hook unrelated to the Python package
 - PowerShell (`setup.ps1`) for native Windows — same thin-wrapper shape
 - `pyproject.toml` + `uv.lock` — no other build step; this package is never published or installed elsewhere, only run in-place via `uv run`
@@ -22,7 +22,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
   - `mcp/` - `servers.py` (loads `mcp-servers.json`, defines `REPO_ROOT`) and `config.py` (merges ready servers into `~/.claude.json`)
   - `claudemd.py`, `bifrost.py` - the CLAUDE.md and Bifrost steps. The CLAUDE.md step targets the launch dir (`CLAUDE_CODE_SETUP_PROJECT_DIR`, set by the wrappers): an existing root `CLAUDE.md`, else `.claude/CLAUDE.md`
   - everything except `main.py` is internal-only: plain functions `main.py` imports, no standalone entry point
-- `tests/` - `pytest` suite, a package (`uv run pytest`): `test_mcpconfig.py`/`test_claudemd.py`/`test_main.py` are fast fixture-based unit tests; `test_mcp_servers.py` + `conftest.py` are the live MCP integration suite, marked `integration` (`uv run pytest -m "not integration"` skips it)
+- `tests/` - `pytest` suite, a package (`uv run pytest`): `test_mcpconfig.py`/`test_claudemd.py`/`test_main.py`/`test_ui.py` are fast fixture-based unit tests; `test_mcp_servers.py` + `conftest.py` are the live MCP integration suite, marked `integration` (`uv run pytest -m "not integration"` skips it)
 - `mcp-servers.json` (root) - standalone MCP server definitions (GitHub, Context7, browser-use, Lightpanda's native MCP server, Codegraph, dbx)
 - `CLAUDE_TEMPLATE.md` (root) - reusable `CLAUDE.md`-generation prompt, starter structure embedded, that `setup` offers to run via `claude -p` (generate if missing, refresh after a y/n if present; no `--model` pin, the user's default model is the point)
 - `githooks/commit-msg` - Conventional Commits enforcement hook (plain bash, out of scope of the Python package), wired via `git config core.hooksPath githooks`
@@ -57,7 +57,7 @@ After changing anything in this repo:
 - No config file and no secrets: optional pieces (Lightpanda, Bifrost) are y/n prompts in the TUI (default yes, so a non-interactive run installs them). The GitHub MCP server is `UNMANAGED` in `mcp/config.py` — the user registers it with their own PAT, and the summary prints the `claude mcp add` line (`github_add_command()`) until `~/.claude.json` has it.
 - MCP servers are only written into `~/.claude.json` once what they need is actually present (e.g. `uvx`, the `lightpanda` binary) — a placeholder or broken entry is worse than a server that's just not registered yet; missing pieces are listed at the end of the run instead.
 - `setup` maintains a marker-delimited (`<!-- WEB_TOOLS_START -->`) block in the user's global `~/.claude/CLAUDE.md` routing web lookups: built-in WebSearch/WebFetch first, Context7 for library docs, Lightpanda/browser-use only as escalation (order measured in `bench/`). Only the block is rewritten, and only servers that actually registered get a bullet — see `AGENTS.md` before changing the wording or the gating.
-- Terminal output goes through `src/claude_code_setup/core/ui.py` (built on `rich`) — colored ok/skip/warn/step lines, a spinner, a y/n confirm, Markdown rendering. No external binary (gum was dropped entirely during the Python rewrite).
+- Terminal output goes through `src/claude_code_setup/core/ui.py` (built on `rich`) — colored ok/skip/warn/step lines, a spinner, a y/n confirm, Markdown rendering, plus `choose()`, an arrow-key menu via `questionary` (the one thing rich can't do). No external binary (gum was dropped entirely during the Python rewrite).
 - Setup is idempotent — safe to re-run `./setup.sh`/`.ps1` anytime (e.g. to add Lightpanda after declining it); it's also the only way to re-check tool status or re-merge MCP config now (no separate standalone commands for those).
 - For the reasoning behind specific tool/server choices (Bifrost vs. alternatives, Codegraph vs. Graphify, why there's no Obsidian vault tool yet, browser-use's `--cli-mcp` mode, etc.), see `AGENTS.md` before changing them — several were arrived at after ruling out non-obvious failure modes.
 

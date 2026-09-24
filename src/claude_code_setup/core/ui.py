@@ -6,21 +6,43 @@ external binary/download/temp-dir lifecycle to manage. `Console` already
 auto-detects TTY and honors NO_COLOR itself, so there's a single
 library-owned color-gating rule instead of three slightly different
 hand-rolled ones (bash/Python/PowerShell today).
+
+The one thing rich can't do is an arrow-key menu, so `choose` uses
+questionary (prompt_toolkit underneath, which handles the Windows console
+too).
 """
 
 from __future__ import annotations
 
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar
 
+import questionary
+from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.markup import escape
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 
 console = Console()
 _err_console = Console(stderr=True)
 
 T = TypeVar("T")
+
+# ANSI color names, not hex, so the menu follows the terminal's own palette
+# like rich's output does. The legend's arrows are the one exception to the
+# ASCII-only rule below: prompt_toolkit writes through WriteConsoleW on
+# legacy Windows consoles and encodes with errors="replace" elsewhere, so an
+# unrenderable glyph degrades to "?" instead of raising.
+MENU_LEGEND = "↑↓ Move with arrow keys ENTER Select Ctrl+C Quit"
+_MENU_STYLE = Style(
+    [
+        ("qmark", "fg:ansimagenta bold"),
+        ("question", "bold"),
+        ("pointer", "fg:ansigreen bold"),
+        ("highlighted", "fg:ansigreen bold"),
+        ("instruction", "fg:ansibrightblack"),
+    ]
+)
 
 
 # Plain ASCII glyphs throughout (+/-/!, "line" spinner frames), never
@@ -65,20 +87,29 @@ def confirm(prompt: str, default: bool = False) -> bool:
         return default
 
 
-def choose(prompt: str, options: list[str], default: int = 0) -> int:
-    """Asks for one of `options` by number; returns its index, or `default`
-    if stdin isn't interactive."""
+def choose(prompt: str, options: list[str], default: int = 0, **session: Any) -> int:
+    """Arrow-key menu: up/down (or j/k) to move, Enter to pick. Returns the
+    picked option's index, or `default` if stdin isn't interactive. Ctrl-C
+    aborts setup, same as at any other prompt.
+
+    `session` goes to prompt_toolkit's Application (input=/output=) - a test
+    seam only."""
     if not console.is_terminal:
         return default
-    console.print(f"  {escape(prompt)}")
-    for number, option in enumerate(options, start=1):
-        console.print(f"    {number}) {escape(option)}")
-    choices = [str(n) for n in range(1, len(options) + 1)]
+    choices = [questionary.Choice(title=option, value=index) for index, option in enumerate(options)]
     try:
-        answer = Prompt.ask("  Choice", choices=choices, default=str(default + 1), console=console)
+        return questionary.select(
+            prompt,
+            choices=choices,
+            default=choices[default],
+            qmark="  ?",
+            pointer=">",
+            instruction=MENU_LEGEND,
+            style=_MENU_STYLE,
+            **session,
+        ).unsafe_ask()
     except EOFError:
         return default
-    return int(answer) - 1
 
 
 def spin(title: str, fn: Callable[[], T]) -> T:
