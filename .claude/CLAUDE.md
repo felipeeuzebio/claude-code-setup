@@ -5,7 +5,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 ## Stack
 
 - Python, run via `uv` (`uv run setup`) — no separate Python install needed, `uv` manages the interpreter
-- Two runtime dependencies: `rich` (styled terminal output) and `questionary` (the arrow-key menu, on prompt_toolkit); `pytest` + `pytest-xdist` are dev-only
+- Two runtime dependencies: `rich` (styled terminal output) and `prompt-toolkit` (the arrow-key menu); `pytest` + `pytest-xdist` are dev-only
 - Bash (`setup.sh`, `githooks/commit-msg`) for Linux/WSL2/macOS — both are thin, `githooks/commit-msg` is a standalone hook unrelated to the Python package
 - PowerShell (`setup.ps1`) for native Windows — same thin-wrapper shape
 - `pyproject.toml` + `uv.lock` — no other build step; this package is never published or installed elsewhere, only run in-place via `uv run`
@@ -57,7 +57,7 @@ After changing anything in this repo:
 - No config file and no secrets: optional pieces (Lightpanda, Bifrost) are y/n prompts in the TUI (default yes, so a non-interactive run installs them). The GitHub MCP server is `UNMANAGED` in `mcp/config.py` — the user registers it with their own PAT, and the summary prints the `claude mcp add` line (`github_add_command()`) until `~/.claude.json` has it.
 - MCP servers are only written into `~/.claude.json` once what they need is actually present (e.g. `uvx`, the `lightpanda` binary) — a placeholder or broken entry is worse than a server that's just not registered yet; missing pieces are listed at the end of the run instead.
 - `setup` maintains a marker-delimited (`<!-- WEB_TOOLS_START -->`) block in the user's global `~/.claude/CLAUDE.md` routing web lookups: built-in WebSearch/WebFetch first, Context7 for library docs, Lightpanda/browser-use only as escalation (order measured in `bench/`). Only the block is rewritten, and only servers that actually registered get a bullet — see `AGENTS.md` before changing the wording or the gating.
-- Terminal output goes through `src/claude_code_setup/core/ui.py` (built on `rich`) — colored ok/skip/warn/step lines, a spinner, a y/n confirm, Markdown rendering, plus `choose()`, an arrow-key menu via `questionary` (the one thing rich can't do). No external binary (gum was dropped entirely during the Python rewrite).
+- Terminal output goes through `src/claude_code_setup/core/ui.py` (built on `rich`) — colored ok/skip/warn/step lines, a spinner, a y/n confirm, Markdown rendering, plus `choose()`, an arrow-key menu built directly on `prompt_toolkit` (the one thing rich can't do; questionary was tried and dropped - no bottom legend, reverse-video default). No external binary (gum was dropped entirely during the Python rewrite).
 - Setup is idempotent — safe to re-run `./setup.sh`/`.ps1` anytime (e.g. to add Lightpanda after declining it); it's also the only way to re-check tool status or re-merge MCP config now (no separate standalone commands for those).
 - For the reasoning behind specific tool/server choices (Bifrost vs. alternatives, Codegraph vs. Graphify, why there's no Obsidian vault tool yet, browser-use's `--cli-mcp` mode, etc.), see `AGENTS.md` before changing them — several were arrived at after ruling out non-obvious failure modes.
 

@@ -40,26 +40,42 @@ def test_arrow_keys_move_the_selection(keys: PipeInput) -> None:
     assert _choose(keys, DOWN + DOWN + UP + ENTER) == 1
 
 
+def test_j_and_k_move_like_the_arrows(keys: PipeInput) -> None:
+    assert _choose(keys, "jjk" + ENTER) == 1
+
+
+def test_ctrl_c_quits(keys: PipeInput) -> None:
+    with pytest.raises(KeyboardInterrupt):
+        _choose(keys, "\x03")
+
+
 def test_non_terminal_returns_the_default_without_prompting(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ui.console, "_force_terminal", False)
-    monkeypatch.setattr(ui.questionary, "select", lambda *_a, **_k: pytest.fail("prompted anyway"))
+    monkeypatch.setattr(ui, "_run_menu", lambda *_a, **_k: pytest.fail("prompted anyway"))
 
     assert ui.choose("Pick one", ["first", "second"], default=1) == 1
 
 
-def test_menu_shows_the_key_legend(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(ui.console, "_force_terminal", True)
-    seen: dict = {}
+def _text(tokens: list[tuple[str, str]]) -> str:
+    return "".join(text for _style, text in tokens)
 
-    class _Answered:
-        def unsafe_ask(self) -> int:
-            return 0
 
-    def fake_select(*_a: object, **kwargs: object) -> _Answered:
-        seen.update(kwargs)
-        return _Answered()
+def test_legend_is_the_last_line_below_the_options() -> None:
+    lines = _text(ui._menu_tokens("Pick one", ["first", "second"], 0)).splitlines()
 
-    monkeypatch.setattr(ui.questionary, "select", fake_select)
-    ui.choose("Pick one", ["first", "second"])
+    assert lines[-1].strip() == "↑↓ Move with arrow keys ENTER Select Ctrl+C Quit"
+    assert "Pick one" in lines[0]
+    assert [line.strip(" >") for line in lines[1:3]] == ["first", "second"]
 
-    assert seen["instruction"] == "↑↓ Move with arrow keys ENTER Select Ctrl+C Quit"
+
+def test_only_the_pointed_option_is_marked() -> None:
+    lines = _text(ui._menu_tokens("Pick one", ["first", "second"], 1)).splitlines()
+
+    assert lines[1].startswith("    first")
+    assert lines[2].startswith("  > second")
+
+
+def test_no_option_uses_the_reverse_video_selected_class() -> None:
+    # prompt_toolkit's own "selected" class renders as a white reverse-video bar.
+    tokens = ui._menu_tokens("Pick one", ["first", "second"], 0)
+    assert all("selected" not in style for style, _text in tokens)
