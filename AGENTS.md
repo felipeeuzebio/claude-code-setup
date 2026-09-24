@@ -211,7 +211,7 @@ to be running):
 ## setup: skip rather than write broken entries
 
 **2026-09 update:** `setup.sh`/`setup.ps1` are now thin wrappers around a
-`uv`-managed Python package (`src/claude_code_setup/`) - see `CLAUDE.md` for the
+`uv`-managed Python package (`src/claude_code_setup/`) - see `.claude/CLAUDE.md` for the
 current structure. The reasoning below still holds; only the file paths
 it names have moved.
 
@@ -269,7 +269,7 @@ permanently-installed command:
   setup.sh/setup.ps1 (and install.sh/.ps1) `cd` into the install dir to run
   `uv`, so they pass the caller's dir through `CLAUDE_CODE_SETUP_PROJECT_DIR`
   first. Before that fix, a `curl | bash` run from a project offered to
-  refresh `~/.claude-code-setup/CLAUDE.md` (this repo's own, shipped in the
+  refresh `~/.claude-code-setup/CLAUDE.md` (this repo's own, then in the root and shipped in the
   tarball) and never wrote anything into the project. Launched from the home
   dir, the step is skipped rather than writing `~/CLAUDE.md`.
 - An existing root `CLAUDE.md` is refreshed in place; otherwise the file
