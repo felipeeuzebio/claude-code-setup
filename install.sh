@@ -4,23 +4,28 @@
 #   curl -fsSL https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.sh | bash
 #
 # Run it from the project whose CLAUDE.md you want generated. Downloads this
-# repo's tarball into ~/.claude-code-setup (installing uv first if it's
-# missing), then runs its setup.sh against the dir you ran this from.
-# Re-running it updates that copy in place. Just the CLAUDE.md step:
+# repo into a temporary directory (installing uv first if it's missing),
+# runs its setup.sh against the dir you ran this from, then deletes the
+# download - nothing of this repo stays on disk. Just the CLAUDE.md step:
 #
 #   curl -fsSL .../install.sh | bash -s -- --claude-md-only
 #
-# Optional env vars:
-#   CLAUDE_CODE_SETUP_DIR  install location (default: ~/.claude-code-setup)
+# Optional env var:
 #   CLAUDE_CODE_SETUP_REF  branch or tag to download (default: main)
 #
 # Everything lives inside main() so a truncated download never runs half a script.
 set -euo pipefail
 
+# Global, not local: the EXIT trap runs after main() has returned.
+WORKDIR=""
+
+cleanup() {
+  if [ -n "$WORKDIR" ]; then rm -rf "$WORKDIR"; fi
+}
+
 main() {
   local repo="felipeeuzebio/claude-code-setup"
   local ref="${CLAUDE_CODE_SETUP_REF:-main}"
-  local dest="${CLAUDE_CODE_SETUP_DIR:-$HOME/.claude-code-setup}"
 
   # The caller's dir is the project; remember it before cd-ing anywhere.
   export CLAUDE_CODE_SETUP_PROJECT_DIR="${CLAUDE_CODE_SETUP_PROJECT_DIR:-$PWD}"
@@ -29,33 +34,19 @@ main() {
     command -v "$cmd" >/dev/null || { echo "$cmd is required" >&2; exit 1; }
   done
 
+  # uv stays installed: the browser-use MCP server setup registers runs on uvx.
   if ! command -v uv >/dev/null; then
     echo "==> Installing uv (https://docs.astral.sh/uv/)"
     curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
   fi
 
-  # A real git checkout is the user's to update - just run it as-is.
-  if [ -d "$dest/.git" ]; then
-    echo "==> $dest is a git checkout - leaving it alone (git pull to update)"
-  else
-    echo "==> Downloading $repo@$ref into $dest"
-    tmp="$(mktemp -d)"  # global: the EXIT trap runs after main returns
-    trap 'rm -rf "$tmp"' EXIT
-    mkdir "$tmp/src"
-    curl -fsSL "https://github.com/$repo/archive/$ref.tar.gz" \
-      | tar -xz -C "$tmp/src" --strip-components=1
-
-    # Local-only state that isn't in the tarball survives the update.
-    for keep in .codegraph; do
-      if [ -e "$dest/$keep" ]; then mv "$dest/$keep" "$tmp/src/$keep"; fi
-    done
-    rm -rf "$dest"
-    mkdir -p "$(dirname "$dest")"
-    mv "$tmp/src" "$dest"
-  fi
-
-  cd "$dest"
+  WORKDIR="$(mktemp -d)"
+  trap cleanup EXIT  # also on failure and Ctrl+C
+  echo "==> Downloading $repo@$ref into a temporary directory"
+  curl -fsSL "https://github.com/$repo/archive/$ref.tar.gz" \
+    | tar -xz -C "$WORKDIR" --strip-components=1
+  cd "$WORKDIR"
 
   # Under `curl | bash` stdin is the script pipe, so setup would see no TTY
   # and skip every y/n prompt - hand it the terminal back when there is one.

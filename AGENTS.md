@@ -266,7 +266,7 @@ permanently-installed command:
 - A non-interactive run (no TTY on stdin) never blocks on a prompt - it
   prints the copy-paste block, same as answering no.
 - The target is the project setup was *launched from*, not this repo.
-  setup.sh/setup.ps1 (and install.sh/.ps1) `cd` into the install dir to run
+  setup.sh/setup.ps1 (and install.sh/.ps1) `cd` into the downloaded repo to run
   `uv`, so they pass the caller's dir through `CLAUDE_CODE_SETUP_PROJECT_DIR`
   first. Before that fix, a `curl | bash` run from a project offered to
   refresh `~/.claude-code-setup/CLAUDE.md` (this repo's own, then in the root and shipped in the
@@ -304,6 +304,21 @@ it held turned out not to need a file:
   `mcp-servers.json`, with a `<your-PAT>` placeholder - until
   `~/.claude.json` has a `github` entry. The PAT never passes through
   setup, and there's no file to keep it in.
+
+## The installer's download is temporary
+
+`install.sh`/`install.ps1` used to keep the repo in `~/.claude-code-setup`
+between runs. Nothing needs it after setup exits: the MCP entries run on
+`npx`/`uvx`/installed binaries, and the CLAUDE.md template is only read
+during the run. So the download goes into a fresh temp dir that an EXIT
+trap (bash) / `finally` (PowerShell) deletes - on success, failure and
+Ctrl+C alike.
+
+- uv is the exception and stays installed: the browser-use MCP server runs
+  on `uvx`.
+- Bifrost outlives setup, so it's started with `cwd` = the home dir; node
+  errors out once its working directory is deleted. Its data lives in
+  `~/.config/bifrost` either way.
 
 ## Web tool guidance lives in the global CLAUDE.md, gated on what registered
 

@@ -13,7 +13,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 ## Structure
 
 - `setup.sh` / `setup.ps1` - thin wrappers: check `uv` is present, `exec uv run setup`
-- `install.sh` / `install.ps1` - one-line bootstraps (`curl … | bash` / `irm … | iex`): install `uv` if missing, download the repo tarball/zip from GitHub into `~/.claude-code-setup` (keeping `.codegraph/` across re-runs, leaving a git checkout alone), then run `setup.sh`/`setup.ps1` against the directory they were launched from. The repo slug is hardcoded in both
+- `install.sh` / `install.ps1` - one-line bootstraps (`curl … | bash` / `irm … | iex`): install `uv` if missing, download the repo tarball/zip from GitHub into a temporary directory, run `setup.sh`/`setup.ps1` against the directory they were launched from, then delete the download (EXIT trap / `finally`, so also on failure and Ctrl+C). The repo slug is hardcoded in both
 - `src/claude_code_setup/` - the actual logic, a `uv`-managed packaged app:
   - `__init__.py` - package marker, nothing else
   - `main.py` - orchestration spine (`main()`), what `uv run setup` (a `[project.scripts]` entry, `claude_code_setup.main:main`) calls. Asks full setup vs. CLAUDE.md only first (`--claude-md-only` skips the ask)
@@ -47,7 +47,7 @@ After changing anything in this repo:
 
 1. For changes under `src/claude_code_setup/` or `tests/`: run `uv run pytest -m "not integration"` (fast) and, when touching MCP registration/test logic specifically, the full `uv run pytest` (costs tokens, drives real `claude -p` sessions)
 2. Re-run `./setup.sh`/`./setup.ps1` end-to-end against a scratch copy of the repo when a change touches installs or `~/.claude.json` — never against the real checkout, since e.g. `codegraph init` and MCP registration mutate real local state
-3. For `install.sh`/`install.ps1` changes: run a copy with the final `setup` call stubbed out and `CLAUDE_CODE_SETUP_DIR` pointed at a scratch dir, piped through `bash`/`iex` (that's how users run them), twice - the second run must keep `.codegraph/`
+3. For `install.sh`/`install.ps1` changes: run a copy with the final `setup` call stubbed out, piped through `bash`/`iex` (that's how users run them), and check the temporary directory is gone afterwards - after a normal run, a failing setup, and a Ctrl+C sent through a real terminal (`script`), since SIGINT to a backgrounded bash is ignored and proves nothing
 4. For `githooks/commit-msg` changes (a plain bash script, untouched by the Python rewrite), hand-test both an accepting and a rejecting commit message before relying on it
 5. When adding a case to `tests/test_mcp_servers.py`, prove it can fail: point the server entry at a nonexistent binary and confirm it reports FAIL, not PASS/SKIP. Several prompts are answerable from the model's own knowledge, so a case that never fails is testing nothing
 

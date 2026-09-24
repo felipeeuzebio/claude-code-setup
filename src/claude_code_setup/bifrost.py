@@ -29,6 +29,10 @@ def start_background(log_path: Path) -> None:
             "stdout": log_file,
             "stderr": subprocess.STDOUT,
             "stdin": subprocess.DEVNULL,
+            # It outlives setup, which may run from a temporary download the
+            # installer deletes on exit; node errors out once its cwd is gone.
+            # (Bifrost keeps its data in ~/.config/bifrost, not the cwd.)
+            "cwd": Path.home(),
         }
         if sys.platform == "win32":
             # npx resolves to a .CMD shim on Windows - needs the shell to

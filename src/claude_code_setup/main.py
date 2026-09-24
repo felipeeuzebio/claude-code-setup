@@ -263,7 +263,7 @@ def _summary_step(env: dict[str, str], bu_install_str: str, has_bifrost: bool) -
         )
     numbered = [f"{n}. {item}" for n, item in enumerate(todo, start=1)]
     ui.console.print(
-        escape("\n".join([*numbered, "", "Run ./setup.sh anytime to recheck what's installed."]).lstrip("\n")),
+        escape("\n".join([*numbered, "", "Re-run setup anytime to recheck what's installed."]).lstrip("\n")),
         style="blue",
         soft_wrap=True,  # the commands above must stay copy-pasteable on one line
     )

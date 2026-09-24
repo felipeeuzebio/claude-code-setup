@@ -19,7 +19,7 @@ irm https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/insta
 ```
 
 Run it from inside the project you want a `CLAUDE.md` for. It installs `uv`
-if you don't have it, downloads the repo to `~/.claude-code-setup` and runs
+if you don't have it, downloads the repo into a temporary directory and runs
 the setup, which first asks whether you want the full setup or just the
 `CLAUDE.md`. To skip the question and only do the `CLAUDE.md`:
 
@@ -27,15 +27,17 @@ the setup, which first asks whether you want the full setup or just the
 curl -fsSL https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.sh | bash -s -- --claude-md-only
 ```
 
-Run the same line again to update.
+The download is deleted when setup exits (even on Ctrl+C or an error), so
+nothing of this repo stays on your machine; run the same line again whenever
+you want to re-run it. What setup installs on purpose (uv, Codegraph,
+Lightpanda, the MCP entries) stays.
 
 There's no config file. Setup asks before installing Lightpanda or starting
 Bifrost, and it never handles secrets: the GitHub MCP server needs your own
 personal access token, so the summary at the end prints the
 `claude mcp add github ...` command for you to run with it.
 
-Set `CLAUDE_CODE_SETUP_DIR` to install somewhere else, or
-`CLAUDE_CODE_SETUP_REF` to pick a branch or tag.
+Set `CLAUDE_CODE_SETUP_REF` to pick a branch or tag.
 
 If you already have a clone:
 
