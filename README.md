@@ -20,7 +20,14 @@ irm https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/insta
 
 Run it from inside the project you want a `CLAUDE.md` for. It installs `uv`
 if you don't have it, downloads the repo to `~/.claude-code-setup` and runs
-the setup. Run the same line again to update; your `.env` is kept.
+the setup, which first asks whether you want the full setup or just the
+`CLAUDE.md`. To skip the question and only do the `CLAUDE.md`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.sh | bash -s -- --claude-md-only
+```
+
+Run the same line again to update; your `.env` is kept.
 
 Secrets go in `~/.claude-code-setup/.env` (copy `.env.example`), or inline:
 `GITHUB_TOKEN=... bash` at the end of the curl line. Anything missing is
@@ -33,7 +40,7 @@ If you already have a clone:
 
 ```bash
 cd ~/some-project
-~/claude-code-setup/setup.sh      # or setup.ps1 on Windows
+~/claude-code-setup/setup.sh      # or setup.ps1 on Windows; --claude-md-only for just that step
 ```
 
 ## What setup does

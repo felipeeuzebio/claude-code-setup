@@ -7,6 +7,10 @@ setup.sh and setup.ps1: one codebase, branching on `sys.platform` only
 where behavior genuinely differs (Lightpanda: Linux/Darwin only; the
 codegraph installer one-liner: curl|bash vs irm|iex).
 
+Asks up front whether to run the full setup or just generate/refresh the
+CLAUDE.md of the project it was launched from (`--claude-md-only` skips the
+question).
+
 Optional config via env vars or a repo-root .env file (see .env.example):
   GITHUB_TOKEN,
   SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
@@ -14,6 +18,7 @@ Optional config via env vars or a repo-root .env file (see .env.example):
 
 from __future__ import annotations
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -31,6 +36,13 @@ from claude_code_setup.mcp.servers import REPO_ROOT
 
 _SHELL = sys.platform == "win32"
 
+MODE_FULL = "full"
+MODE_CLAUDE_MD = "claude-md"
+_MODE_OPTIONS = [
+    (MODE_FULL, "Full setup (tools, MCP servers, Bifrost, CLAUDE.md)"),
+    (MODE_CLAUDE_MD, "Just generate/refresh this project's CLAUDE.md"),
+]
+
 
 def _project_dir() -> Path | None:
     """The directory setup was launched from. setup.sh/setup.ps1 cd into the
@@ -40,6 +52,14 @@ def _project_dir() -> Path | None:
     raw = os.environ.get("CLAUDE_CODE_SETUP_PROJECT_DIR")
     project = (Path(raw) if raw else Path.cwd()).resolve()
     return None if project == Path.home().resolve() else project
+
+
+def _choose_mode(claude_md_only: bool) -> str:
+    """Flag first, then ask; a non-interactive run gets the full setup."""
+    if claude_md_only:
+        return MODE_CLAUDE_MD
+    picked = ui.choose("What should setup do?", [label for _, label in _MODE_OPTIONS])
+    return _MODE_OPTIONS[picked][0]
 
 
 def _claude_md_step(project: Path | None) -> None:
@@ -252,6 +272,14 @@ def _summary_step(env: dict[str, str], bu_install_str: str) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(prog="setup", description="Set up this Claude Code environment.")
+    parser.add_argument(
+        "--claude-md-only",
+        action="store_true",
+        help="skip installs and MCP registration; only generate/refresh this project's CLAUDE.md",
+    )
+    args = parser.parse_args()
+
     # Installers below drop binaries into these; prepended once up front so
     # anything installed during this run is findable in this same process.
     local_bin = str(Path.home() / ".local" / "bin")
@@ -260,6 +288,10 @@ def main() -> None:
 
     apply_env(load_env(REPO_ROOT / ".env"))
     project = _project_dir()
+
+    if _choose_mode(args.claude_md_only) == MODE_CLAUDE_MD:
+        _claude_md_step(project)
+        return
 
     _git_hook_step()
 

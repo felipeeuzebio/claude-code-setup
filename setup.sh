@@ -3,7 +3,8 @@
 # Windows alike. This is a thin wrapper: all the actual logic lives in the
 # `setup` Python package under src/, run via `uv`.
 #
-# Run it from the project whose CLAUDE.md you want generated.
+# Run it from the project whose CLAUDE.md you want generated; pass
+# --claude-md-only to skip everything else.
 #
 # Optional config via env vars or a repo-root .env file (see .env.example):
 #   GITHUB_TOKEN,

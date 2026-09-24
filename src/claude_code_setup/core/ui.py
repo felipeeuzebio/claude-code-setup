@@ -15,7 +15,7 @@ from typing import Callable, TypeVar
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.markup import escape
-from rich.prompt import Confirm
+from rich.prompt import Confirm, Prompt
 
 console = Console()
 _err_console = Console(stderr=True)
@@ -63,6 +63,22 @@ def confirm(prompt: str, default: bool = False) -> bool:
         return Confirm.ask(f"  {escape(prompt)}", default=default, console=console)
     except EOFError:
         return default
+
+
+def choose(prompt: str, options: list[str], default: int = 0) -> int:
+    """Asks for one of `options` by number; returns its index, or `default`
+    if stdin isn't interactive."""
+    if not console.is_terminal:
+        return default
+    console.print(f"  {escape(prompt)}")
+    for number, option in enumerate(options, start=1):
+        console.print(f"    {number}) {escape(option)}")
+    choices = [str(n) for n in range(1, len(options) + 1)]
+    try:
+        answer = Prompt.ask("  Choice", choices=choices, default=str(default + 1), console=console)
+    except EOFError:
+        return default
+    return int(answer) - 1
 
 
 def spin(title: str, fn: Callable[[], T]) -> T:

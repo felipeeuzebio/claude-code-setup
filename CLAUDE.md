@@ -16,7 +16,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 - `install.sh` / `install.ps1` - one-line bootstraps (`curl … | bash` / `irm … | iex`): install `uv` if missing, download the repo tarball/zip from GitHub into `~/.claude-code-setup` (keeping its `.env`/`.codegraph/` across re-runs, leaving a git checkout alone), then run `setup.sh`/`setup.ps1` against the directory they were launched from. The repo slug is hardcoded in both
 - `src/claude_code_setup/` - the actual logic, a `uv`-managed packaged app:
   - `__init__.py` - package marker, nothing else
-  - `main.py` - orchestration spine (`main()`), what `uv run setup` (a `[project.scripts]` entry, `claude_code_setup.main:main`) calls
+  - `main.py` - orchestration spine (`main()`), what `uv run setup` (a `[project.scripts]` entry, `claude_code_setup.main:main`) calls. Asks full setup vs. CLAUDE.md only first (`--claude-md-only` skips the ask)
   - `mcptest` lives in `tests/`, not here - it's test code, not part of the shipped tool
   - `core/` - helpers every step uses: `ui.py` (terminal output), `envfile.py` (`.env` parsing), `sysinfo.py` (tool detection)
   - `mcp/` - `servers.py` (loads `mcp-servers.json`, defines `REPO_ROOT`) and `config.py` (merges ready servers into `~/.claude.json`)
@@ -32,7 +32,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 
 ## Commands
 
-- Run setup (Linux/WSL2/macOS): `./setup.sh` (run from the project whose CLAUDE.md you want)
+- Run setup (Linux/WSL2/macOS): `./setup.sh` (run from the project whose CLAUDE.md you want; `--claude-md-only` for just that step)
 - Run setup (native Windows): `./setup.ps1`
 - One-line install, no clone: `curl -fsSL https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.sh | bash` / `irm https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.ps1 | iex`
 - Run the whole test suite (fast unit tests + live MCP integration suite): `uv run pytest`

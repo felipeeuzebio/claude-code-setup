@@ -283,6 +283,10 @@ permanently-installed command:
   `<!-- CLAUDE_MD_START/END -->` markers, and setup writes it. A reply
   without markers leaves the file untouched and falls back to the
   copy-paste prompt.
+- Setup opens by asking full setup vs. CLAUDE.md only (`--claude-md-only`
+  skips the question; a non-interactive run defaults to full), since a
+  machine that already has the tools shouldn't have to sit through installs
+  to get a CLAUDE.md.
 
 ## Web tool guidance lives in the global CLAUDE.md, gated on what registered
 
