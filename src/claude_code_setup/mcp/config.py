@@ -1,10 +1,11 @@
 """Merges the MCP servers this repo manages into ~/.claude.json, skipping
-any server whose required secret/path isn't available rather than writing
-a broken entry.
+any server whose required tool isn't available rather than writing a
+broken entry. Setup handles no secrets: GitHub (the one server that needs a
+token) is registered by the user, and setup only prints the command.
 
 Internal-only: called from setup's main() during a normal run. There's no
-standalone re-merge command any more - after editing .env, re-run
-`./setup.sh` (it's idempotent) instead.
+standalone re-merge command any more - re-run `./setup.sh` (it's
+idempotent) instead.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import time
 from pathlib import Path
 from typing import Callable
@@ -25,9 +27,11 @@ Server = dict
 Fill = Callable[[Server], Server]
 Rule = tuple[bool, Fill, str]
 
-# Registered by their own installer, not merged here - absence from
-# build_plan() is intentional, not a missing rule.
-UNMANAGED = {"codegraph"}
+# Not merged here - absence from build_plan() is intentional, not a missing
+# rule. codegraph registers itself via its own installer; github needs a
+# personal access token, which the user adds themselves (github_add_command).
+UNMANAGED = {"codegraph", "github"}
+GITHUB_PAT_PLACEHOLDER = "<your-PAT>"
 
 
 def _env_flag(name: str, env: dict[str, str]) -> bool:
@@ -35,26 +39,19 @@ def _env_flag(name: str, env: dict[str, str]) -> bool:
 
 
 def build_plan(env: dict[str, str]) -> dict[str, Rule]:
-    github_token = env.get("GITHUB_TOKEN") or env.get("GITHUB_PERSONAL_ACCESS_TOKEN") or ""
-
     has_lightpanda = _env_flag("HAS_LIGHTPANDA", env)
     has_uvx = _env_flag("HAS_UVX", env)
 
     return {
         "context7": (True, lambda s: s, ""),
         "dbx": (True, lambda s: s, ""),
-        "github": (
-            bool(github_token),
-            lambda s: {**s, "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": github_token}},
-            "GITHUB_TOKEN (or GITHUB_PERSONAL_ACCESS_TOKEN) not set",
-        ),
         "browser-use": (has_uvx, lambda s: s, "uvx not on PATH"),
         "lightpanda": (
             has_lightpanda,
             lambda s: s,
             "lightpanda not installed or not supported on this OS",
         ),
-        # codegraph is in UNMANAGED above - no entry needed here.
+        # codegraph and github are in UNMANAGED above - no entry needed here.
     }
 
 
@@ -73,6 +70,23 @@ def _resolve_target_path(env: dict[str, str]) -> Path:
     home = env.get("CLAUDE_HOME")
     base = Path(home) if home else Path.home()
     return base / ".claude.json"
+
+
+def github_add_command() -> str:
+    """The `claude mcp add` line for the GitHub server as defined in
+    mcp-servers.json, with a placeholder where the user's PAT goes."""
+    server = load_managed_servers()["github"]
+    env_flags = [f"-e {key}={GITHUB_PAT_PLACEHOLDER}" for key in server.get("env", {})]
+    command = shlex.join([server["command"], *server.get("args", [])])
+    return " ".join(["claude mcp add github --scope user", *env_flags, "--", command])
+
+
+def is_registered(name: str, env: dict[str, str] | None = None) -> bool:
+    """Whether ~/.claude.json already has an MCP server called `name`."""
+    path = _resolve_target_path(dict(os.environ) if env is None else env)
+    if not path.exists():
+        return False
+    return name in _load_json(path).get("mcpServers", {})
 
 
 def merge_and_write(

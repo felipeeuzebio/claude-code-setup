@@ -9,11 +9,9 @@ codegraph installer one-liner: curl|bash vs irm|iex).
 
 Asks up front whether to run the full setup or just generate/refresh the
 CLAUDE.md of the project it was launched from (`--claude-md-only` skips the
-question).
-
-Optional config via env vars or a repo-root .env file (see .env.example):
-  GITHUB_TOKEN,
-  SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
+question). No config file: optional pieces (Lightpanda, Bifrost) are asked
+about in the terminal, and the GitHub MCP server - the only one needing a
+secret - is left for the user to add with their own PAT.
 """
 
 from __future__ import annotations
@@ -30,7 +28,6 @@ from rich.markup import escape
 
 from claude_code_setup import bifrost, claudemd
 from claude_code_setup.core import sysinfo, ui
-from claude_code_setup.core.envfile import apply_env, load_env
 from claude_code_setup.mcp import config as mcp_config
 from claude_code_setup.mcp.servers import REPO_ROOT
 
@@ -211,13 +208,17 @@ def _browser_use_step(has_uvx: bool) -> bool:
     return False
 
 
-def _lightpanda_step(env: dict[str, str]) -> bool:
+def _lightpanda_step() -> bool:
     ui.step("Lightpanda (fast local browser engine)")
     if sys.platform not in ("linux", "darwin"):
         ui.skip(f"Not supported on {sys.platform} without WSL (lightpanda has no native Windows build yet)")
         return False
-    if env.get("SKIP_LIGHTPANDA") == "1":
-        ui.skip("SKIP_LIGHTPANDA=1")
+    if shutil.which("lightpanda"):
+        ui.ok("lightpanda already installed")
+        return True
+    # Defaults to yes, so a non-interactive run installs it like it always did.
+    if not ui.confirm("Install Lightpanda and register its MCP server?", default=True):
+        ui.skip("Skipped - re-run setup to add it later")
         return False
     if _install_tool("lightpanda", "https://pkg.lightpanda.io/install.sh", ""):
         return True
@@ -225,35 +226,49 @@ def _lightpanda_step(env: dict[str, str]) -> bool:
     return False
 
 
-def _bifrost_step(env: dict[str, str]) -> None:
+def _bifrost_step() -> bool:
+    """Returns whether Bifrost is (or is being) run, for the summary."""
     ui.step("Bifrost gateway")
-    if env.get("SKIP_BIFROST") == "1":
-        ui.skip("SKIP_BIFROST=1")
-        return
     if bifrost.is_running():
         ui.ok("Already running on http://localhost:8080")
-        return
+        return True
+    # Defaults to yes, so a non-interactive run starts it like it always did.
+    if not ui.confirm("Start the Bifrost MCP gateway on http://localhost:8080?", default=True):
+        ui.skip("Skipped - re-run setup to start it later")
+        return False
     log_path = Path(tempfile.gettempdir()) / "bifrost.log"
     bifrost.start_background(log_path)
     ui.ok(f"Starting in background (log: {log_path}) - give it a few seconds")
+    return True
 
 
-def _summary_step(env: dict[str, str], bu_install_str: str) -> None:
+def _summary_step(env: dict[str, str], bu_install_str: str, has_bifrost: bool) -> None:
     ui.step("Summary - what's left for you")
+    todo: list[str] = []
+    if not mcp_config.is_registered("github", env):
+        todo.append(
+            "Create a GitHub personal access token (https://github.com/settings/tokens)\n"
+            "   and register the GitHub MCP server with it:\n"
+            f"   {mcp_config.github_add_command()}"
+        )
+    if has_bifrost:
+        todo.append(
+            "Open http://localhost:8080, finish Bifrost onboarding, generate a virtual key.\n"
+            "   claude mcp add --transport http bifrost http://localhost:8080/mcp "
+            '--header "Authorization: Bearer <key>" --scope user'
+        )
+        todo.append(
+            "In the Bifrost UI, add downstream servers you'd rather gateway than run direct\n"
+            "   (command/args/env are in mcp-servers.json)."
+        )
+    numbered = [f"{n}. {item}" for n, item in enumerate(todo, start=1)]
     ui.console.print(
-        "1. Open http://localhost:8080, finish Bifrost onboarding, generate a virtual key.\n"
-        '   claude mcp add --transport http bifrost http://localhost:8080/mcp '
-        '--header "Authorization: Bearer <key>" --scope user\n'
-        "2. In the Bifrost UI, add downstream servers you'd rather gateway than run direct\n"
-        "   (command/args/env are in mcp-servers.json).\n\n"
-        "Run ./setup.sh anytime to recheck what's installed.",
+        escape("\n".join([*numbered, "", "Run ./setup.sh anytime to recheck what's installed."]).lstrip("\n")),
         style="blue",
+        soft_wrap=True,  # the commands above must stay copy-pasteable on one line
     )
 
     warnings: list[str] = []
-
-    if not (env.get("GITHUB_TOKEN") or env.get("GITHUB_PERSONAL_ACCESS_TOKEN")):
-        warnings.append("- Set GITHUB_TOKEN and re-run to register the GitHub MCP server.")
 
     if env.get("HAS_UVX") != "true":
         warnings.append(
@@ -286,7 +301,6 @@ def main() -> None:
     cargo_bin = str(Path.home() / ".cargo" / "bin")
     os.environ["PATH"] = os.pathsep.join([local_bin, cargo_bin, os.environ.get("PATH", "")])
 
-    apply_env(load_env(REPO_ROOT / ".env"))
     project = _project_dir()
 
     if _choose_mode(args.claude_md_only) == MODE_CLAUDE_MD:
@@ -303,7 +317,7 @@ def main() -> None:
     browser_use_ready = _browser_use_step(has_uvx)
     os.environ["BROWSER_USE_READY"] = "true" if browser_use_ready else "false"
 
-    has_lightpanda = _lightpanda_step(dict(os.environ))
+    has_lightpanda = _lightpanda_step()
     os.environ["HAS_LIGHTPANDA"] = "true" if has_lightpanda else "false"
 
     _claude_md_step(project)
@@ -314,10 +328,10 @@ def main() -> None:
     ui.step("Web/browser tool guidance in ~/.claude/CLAUDE.md")
     claudemd.ensure_web_tools_guidance(registered, env=dict(os.environ), ask=sys.stdin.isatty())
 
-    _bifrost_step(dict(os.environ))
+    has_bifrost = _bifrost_step()
 
     bu_install_str = "uvx --python 3.12 browser-use[cli] install"
-    _summary_step(dict(os.environ), bu_install_str)
+    _summary_step(dict(os.environ), bu_install_str, has_bifrost)
 
 
 if __name__ == "__main__":

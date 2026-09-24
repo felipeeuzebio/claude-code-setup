@@ -5,12 +5,11 @@
 # Run it from the project whose CLAUDE.md you want generated. Downloads this
 # repo's zip into ~\.claude-code-setup (installing uv first if it's missing),
 # then runs its setup.ps1 against the dir you ran this from. Re-running it
-# updates that copy in place, keeping its .env and .codegraph\.
+# updates that copy in place.
 #
 # Optional env vars:
 #   CLAUDE_CODE_SETUP_DIR  install location (default: ~\.claude-code-setup)
 #   CLAUDE_CODE_SETUP_REF  branch or tag to download (default: main)
-# plus anything setup.ps1 reads (GITHUB_TOKEN, SKIP_BIFROST=1, ...).
 #
 # Wrapped in a function so a truncated download never runs half a script,
 # and so nothing leaks into the caller's session under `iex`.
@@ -44,7 +43,7 @@ function Install-ClaudeCodeSetup {
             $Src = (Get-ChildItem $Tmp -Directory | Select-Object -First 1).FullName
 
             # Local-only state that isn't in the zip survives the update.
-            foreach ($Keep in '.env', '.codegraph') {
+            foreach ($Keep in '.codegraph') {
                 $Old = Join-Path $Dest $Keep
                 if (Test-Path $Old) { Move-Item $Old (Join-Path $Src $Keep) }
             }
@@ -54,10 +53,6 @@ function Install-ClaudeCodeSetup {
         } finally {
             Remove-Item $Tmp -Recurse -Force -ErrorAction SilentlyContinue
         }
-    }
-
-    if (-not (Test-Path (Join-Path $Dest '.env'))) {
-        Write-Host "==> Tip: copy $Dest\.env.example to $Dest\.env to add secrets, then re-run"
     }
 
     # The caller's dir is the project. Passed as an env var, not the child's

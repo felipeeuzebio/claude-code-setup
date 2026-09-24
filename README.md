@@ -27,11 +27,12 @@ the setup, which first asks whether you want the full setup or just the
 curl -fsSL https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.sh | bash -s -- --claude-md-only
 ```
 
-Run the same line again to update; your `.env` is kept.
+Run the same line again to update.
 
-Secrets go in `~/.claude-code-setup/.env` (copy `.env.example`), or inline:
-`GITHUB_TOKEN=... bash` at the end of the curl line. Anything missing is
-skipped and listed at the end.
+There's no config file. Setup asks before installing Lightpanda or starting
+Bifrost, and it never handles secrets: the GitHub MCP server needs your own
+personal access token, so the summary at the end prints the
+`claude mcp add github ...` command for you to run with it.
 
 Set `CLAUDE_CODE_SETUP_DIR` to install somewhere else, or
 `CLAUDE_CODE_SETUP_REF` to pick a branch or tag.
@@ -45,13 +46,13 @@ cd ~/some-project
 
 ## What setup does
 
-- Installs Codegraph, and Lightpanda on Linux/macOS
-- Adds the MCP servers below to `~/.claude.json` (after backing it up). A
-  server that needs a secret is only added once the secret is set
+- Installs Codegraph, and (after asking) Lightpanda on Linux/macOS
+- Adds the MCP servers below to `~/.claude.json` (after backing it up),
+  except GitHub, which you add with your own token
 - Asks before adding a short web-tools section to `~/.claude/CLAUDE.md`
-- Starts Bifrost on http://localhost:8080
+- Asks, then starts Bifrost on http://localhost:8080
 
-Running it again is safe, so re-run it whenever you add a secret.
+Running it again is safe, so re-run it to add anything you skipped.
 
 Two things are left to do by hand, and setup reminds you of both: create a
 Bifrost virtual key in its web UI, and add any servers you want to go
@@ -67,7 +68,7 @@ paste it into Claude Code in any project.
 
 | Server | What for | Needs |
 |---|---|---|
-| GitHub | repos, issues, PRs | `GITHUB_TOKEN` |
+| GitHub | repos, issues, PRs | your PAT - you add it (setup prints the command) |
 | Context7 | up-to-date library docs | nothing |
 | browser-use | full browser control (clicks, logins) | `uvx` |
 | Lightpanda | light headless browser for reading pages | Linux/macOS (WSL2 on Windows) |
@@ -88,7 +89,6 @@ CLAUDE_TEMPLATE.md        prompt for generating a CLAUDE.md
 AGENTS.md                 reasons behind the tool choices
 bench/                    benchmarks behind those choices
 githooks/                 commit-msg hook (Conventional Commits)
-.env.example              secrets and flags
 ```
 
 ## Tests

@@ -1,2 +1,2 @@
-"""Helpers every setup step leans on: terminal output, .env parsing, tool
+"""Helpers every setup step leans on: terminal output, tool
 detection."""

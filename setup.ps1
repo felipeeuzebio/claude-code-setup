@@ -5,10 +5,7 @@
 #
 # Run it from the project whose CLAUDE.md you want generated; pass
 # --claude-md-only to skip everything else.
-#
-# Optional config via env vars or a repo-root .env file (see .env.example):
-#   GITHUB_TOKEN,
-#   SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
+# No config file: optional pieces are asked about as it runs.
 
 # The caller's dir is the project; remember it before Set-Location.
 if (-not $env:CLAUDE_CODE_SETUP_PROJECT_DIR) { $env:CLAUDE_CODE_SETUP_PROJECT_DIR = (Get-Location).Path }

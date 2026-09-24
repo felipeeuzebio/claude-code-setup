@@ -6,7 +6,7 @@ Same technique as tests/test_mcp_servers.py. Records, per question per arm:
 correct (fixed regex), tool calls, bytes returned by tools (the tokens-into-
 context proxy), the session's own usage numbers, and wall-clock.
 
-Run from the repo root (needs `.env` for OBSIDIAN_VAULT_PATH, and the vault
+Run from the repo root (needs OBSIDIAN_VAULT_PATH exported, and the vault
 must already hold the Drizzle 1.0-beta mirror - see results.md for the crawl
 command):
 
@@ -112,7 +112,7 @@ def run_one(arm: str, qid: str, question: str, expect: str) -> dict:
 
 def main() -> None:
     if not Path(VAULT).is_dir():
-        sys.exit("OBSIDIAN_VAULT_PATH is not a directory - set it in .env")
+        sys.exit("OBSIDIAN_VAULT_PATH is not a directory - export it first")
     arms = sys.argv[1:] or list(ARMS)
     jobs = [(arm, qid, q, exp) for arm in arms for qid, q, exp in QUESTIONS]
     print(f"{len(jobs)} sessions, {WORKERS} at a time, model={MODEL}", flush=True)

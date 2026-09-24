@@ -17,8 +17,6 @@ import tempfile
 import time
 from pathlib import Path
 
-from claude_code_setup.core.envfile import apply_env, load_env
-from claude_code_setup.mcp.servers import REPO_ROOT
 
 # Built-ins that could answer a bench prompt without the arm's tools. Benches
 # that measure WebFetch/WebSearch themselves drop those two from the list.
@@ -27,8 +25,7 @@ DENIED_WEB = "WebFetch,WebSearch"
 
 
 def bench_env() -> dict[str, str]:
-    """`.env` values the benches need, loaded the way `setup` loads them."""
-    apply_env(load_env(REPO_ROOT / ".env"))
+    """Values the benches need, read from the environment."""
     return {
         "vault": os.environ.get("OBSIDIAN_VAULT_PATH", ""),
         "firecrawl_api_url": os.environ.get("FIRECRAWL_API_URL", "http://localhost:3002"),

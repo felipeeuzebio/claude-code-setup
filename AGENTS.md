@@ -216,11 +216,11 @@ current structure. The reasoning below still holds; only the file paths
 it names have moved.
 
 `setup`'s `mcp/config.py` (called from `main()`, not a standalone script
-any more) only adds an MCP server to `~/.claude.json` once its required
-secret/path is present - a silently-broken MCP server is worse than one
-that's just not there yet. Missing pieces are listed at the end of the
-run instead, so re-running `./setup.sh`/`.ps1` after adding one line to
-`.env` is the whole fix.
+any more) only adds an MCP server to `~/.claude.json` once what it needs is
+present - a silently-broken MCP server is worse than one that's just not
+there yet. Missing pieces are listed at the end of the run instead, so
+re-running `./setup.sh`/`.ps1` is the whole fix. (Secret-bearing servers
+are no longer registered by setup at all - see "No config file" below.)
 
 Two things this rule had to be tightened for:
 
@@ -237,9 +237,9 @@ Two things this rule had to be tightened for:
   real bash: an unquoted value with a space (a Windows-style
   `OBSIDIAN_VAULT_PATH=C:\Users\you\Documents\My Vault`) gets word-split,
   and backslashes get interpreted as shell escapes and silently stripped.
-  This is exactly why `src/claude_code_setup/core/envfile.py` never evaluates `.env` as
-  shell/Python - it's a plain line-by-line parser that only strips one
-  matching layer of quotes, preserving everything else byte-for-byte.
+  The Python rewrite replaced it with a plain line-by-line parser; the file
+  itself is gone now (see "No config file" below), but if any file-based
+  config ever comes back, it must never be evaluated as shell.
 
 ## CLAUDE.md init: an interactive setup-time ask, not an installed command
 
@@ -287,6 +287,23 @@ permanently-installed command:
   skips the question; a non-interactive run defaults to full), since a
   machine that already has the tools shouldn't have to sit through installs
   to get a CLAUDE.md.
+
+## No config file: ask in the TUI, leave secrets to the user
+
+Setup used to read a repo-root `.env` (`GITHUB_TOKEN`, `SKIP_BIFROST`,
+`SKIP_LIGHTPANDA`). The name collides with the `.env` every project keeps
+for itself, and the install dir it sat in is replaced on each update. What
+it held turned out not to need a file:
+
+- The two `SKIP_*` flags are y/n prompts now ("Install Lightpanda...?",
+  "Start the Bifrost MCP gateway...?"), default yes so a non-interactive
+  run behaves like before. Neither asks when the thing is already there.
+- `GITHUB_TOKEN` was the only secret. Setup no longer touches it: `github`
+  is in `UNMANAGED` like codegraph, and the summary prints
+  `github_add_command()` - the `claude mcp add github` line built from
+  `mcp-servers.json`, with a `<your-PAT>` placeholder - until
+  `~/.claude.json` has a `github` entry. The PAT never passes through
+  setup, and there's no file to keep it in.
 
 ## Web tool guidance lives in the global CLAUDE.md, gated on what registered
 

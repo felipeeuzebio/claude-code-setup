@@ -8,7 +8,7 @@ Recorded per session: correct (fixed regex, and at least one tool call - an
 answer from memory doesn't count), tool calls, bytes returned by tools (the
 tokens-into-context proxy), wall-clock.
 
-Run from the repo root (needs `.env`; self-hosted Firecrawl up at
+Run from the repo root (needs self-hosted Firecrawl up at
 FIRECRAWL_API_URL; `lightpanda` on PATH; a Chromium for browser-use - the
 bench starts a headless one on CHROME_PORT if none is listening):
 
