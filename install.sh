@@ -16,15 +16,62 @@
 # Everything lives inside main() so a truncated download never runs half a script.
 set -euo pipefail
 
-# Global, not local: the EXIT trap runs after main() has returned.
+REPO="felipeeuzebio/claude-code-setup"
+SPINNER_TEXT="Initializing Claude Code Setup"
+
+# Globals, not locals: the EXIT trap runs after main() has returned.
 WORKDIR=""
+SPINNER_PID=""
 
 cleanup() {
+  # Ctrl+C mid-spinner: the background job ignores SIGINT (no job control),
+  # so stop it here, and give the cursor back.
+  if [ -n "$SPINNER_PID" ]; then kill "$SPINNER_PID" 2>/dev/null || true; fi
+  if [ -t 2 ]; then printf '\033[?25h' >&2; fi
   if [ -n "$WORKDIR" ]; then rm -rf "$WORKDIR"; fi
 }
 
+# Everything before setup's own UI: install uv if missing, download the repo,
+# and build its virtualenv so `uv run` in setup.sh has nothing left to print.
+# Every step checks itself: with_spinner calls this in a `||` list, where
+# `set -e` is switched off.
+prepare() {
+  local ref="$1"
+  if ! command -v uv >/dev/null; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh || return
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+  fi
+  curl -fsSL "https://github.com/$REPO/archive/$ref.tar.gz" \
+    | tar -xz -C "$WORKDIR" --strip-components=1 || return
+  (cd "$WORKDIR" && uv sync --quiet) || return
+}
+
+# Runs "$@" with its output hidden behind a one-line spinner on stderr; if it
+# fails, prints what it said and fails too. A plain line when not a terminal.
+with_spinner() {
+  local log="$WORKDIR/.install.log" status=0  # inside WORKDIR: cleanup() takes it too
+  if [ ! -t 2 ]; then
+    echo "$SPINNER_TEXT..." >&2
+    "$@" </dev/null >"$log" 2>&1 || status=$?
+  else
+    "$@" </dev/null >"$log" 2>&1 &
+    SPINNER_PID=$!
+    local frames='-\|/' i=0
+    printf '\033[?25l' >&2
+    while kill -0 "$SPINNER_PID" 2>/dev/null; do
+      printf '\r%s %s' "${frames:i++%4:1}" "$SPINNER_TEXT" >&2
+      sleep 0.1
+    done
+    wait "$SPINNER_PID" || status=$?
+    SPINNER_PID=""
+    printf '\r\033[K\033[?25h' >&2
+  fi
+  if [ "$status" -ne 0 ]; then cat "$log" >&2; fi
+  rm -f "$log"
+  return "$status"
+}
+
 main() {
-  local repo="felipeeuzebio/claude-code-setup"
   local ref="${CLAUDE_CODE_SETUP_REF:-main}"
 
   # The caller's dir is the project; remember it before cd-ing anywhere.
@@ -34,18 +81,12 @@ main() {
     command -v "$cmd" >/dev/null || { echo "$cmd is required" >&2; exit 1; }
   done
 
-  # uv stays installed: the browser-use MCP server setup registers runs on uvx.
-  if ! command -v uv >/dev/null; then
-    echo "==> Installing uv (https://docs.astral.sh/uv/)"
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-  fi
-
   WORKDIR="$(mktemp -d)"
   trap cleanup EXIT  # also on failure and Ctrl+C
-  echo "==> Downloading $repo@$ref into a temporary directory"
-  curl -fsSL "https://github.com/$repo/archive/$ref.tar.gz" \
-    | tar -xz -C "$WORKDIR" --strip-components=1
+  with_spinner prepare "$ref"
+  # prepare ran in a subshell; uv stays installed (browser-use runs on uvx)
+  # but its PATH update didn't make it back here.
+  export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
   cd "$WORKDIR"
 
   # Under `curl | bash` stdin is the script pipe, so setup would see no TTY

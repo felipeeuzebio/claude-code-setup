@@ -19,4 +19,5 @@ command -v uv >/dev/null || {
   exit 1
 }
 
-exec uv run setup "$@"
+# --quiet: no "Installed N packages" chatter before setup's own UI.
+exec uv run --quiet setup "$@"

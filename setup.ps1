@@ -18,5 +18,6 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-& uv run setup @args
+# --quiet: no "Installed N packages" chatter before setup's own UI.
+& uv run --quiet setup @args
 exit $LASTEXITCODE
