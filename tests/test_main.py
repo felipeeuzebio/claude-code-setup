@@ -87,3 +87,21 @@ def test_running_bifrost_is_kept_without_asking(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(setup_main.ui, "confirm", lambda *_a, **_k: pytest.fail("asked anyway"))
 
     assert setup_main._bifrost_step() is True
+
+
+# --- Ctrl+C -----------------------------------------------------------------
+
+
+def test_ctrl_c_exits_130_without_a_traceback(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    def interrupted() -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(setup_main, "_run", interrupted)
+
+    with pytest.raises(SystemExit) as exit_info:
+        setup_main.main()
+
+    assert exit_info.value.code == 130
+    captured = capsys.readouterr()
+    assert "Traceback" not in captured.out + captured.err
+    assert "Setup cancelled" in captured.out

@@ -286,7 +286,22 @@ def _summary_step(env: dict[str, str], bu_install_str: str, has_bifrost: bool) -
         ui.console.print(escape("\n".join(warnings)), style="yellow")
 
 
+# 128 + SIGINT, the conventional exit code for a Ctrl+C'd command.
+_EXIT_INTERRUPTED = 130
+
+
 def main() -> None:
+    try:
+        _run()
+    except KeyboardInterrupt:
+        # Ctrl+C at any prompt or step lands here: one line, no traceback.
+        # The leading newline gets off a half-typed prompt line first.
+        ui.console.print()
+        ui.skip("Setup cancelled")
+        sys.exit(_EXIT_INTERRUPTED)
+
+
+def _run() -> None:
     parser = argparse.ArgumentParser(prog="setup", description="Set up this Claude Code environment.")
     parser.add_argument(
         "--claude-md-only",
