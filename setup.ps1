@@ -3,9 +3,14 @@
 # a thin wrapper: all the actual logic lives in the `setup` Python package
 # under src/, run via `uv`.
 #
+# Run it from the project whose CLAUDE.md you want generated.
+#
 # Optional config via env vars or a repo-root .env file (see .env.example):
 #   GITHUB_TOKEN,
 #   SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
+
+# The caller's dir is the project; remember it before Set-Location.
+if (-not $env:CLAUDE_CODE_SETUP_PROJECT_DIR) { $env:CLAUDE_CODE_SETUP_PROJECT_DIR = (Get-Location).Path }
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $RepoRoot

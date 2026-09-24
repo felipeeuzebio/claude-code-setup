@@ -18,9 +18,9 @@ Windows:
 irm https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.ps1 | iex
 ```
 
-This installs `uv` if you don't have it, downloads the repo to
-`~/.claude-code-setup` and runs the setup. Run the same line again to update;
-your `.env` is kept.
+Run it from inside the project you want a `CLAUDE.md` for. It installs `uv`
+if you don't have it, downloads the repo to `~/.claude-code-setup` and runs
+the setup. Run the same line again to update; your `.env` is kept.
 
 Secrets go in `~/.claude-code-setup/.env` (copy `.env.example`), or inline:
 `GITHUB_TOKEN=... bash` at the end of the curl line. Anything missing is
@@ -32,8 +32,8 @@ Set `CLAUDE_CODE_SETUP_DIR` to install somewhere else, or
 If you already have a clone:
 
 ```bash
-cp .env.example .env
-./setup.sh      # or ./setup.ps1 on Windows
+cd ~/some-project
+~/claude-code-setup/setup.sh      # or setup.ps1 on Windows
 ```
 
 ## What setup does
@@ -50,8 +50,10 @@ Two things are left to do by hand, and setup reminds you of both: create a
 Bifrost virtual key in its web UI, and add any servers you want to go
 through the gateway ([Bifrost docs](https://docs.getbifrost.ai)).
 
-It also offers to generate or refresh this repo's `CLAUDE.md` from
-`CLAUDE_TEMPLATE.md`. Answer no and it prints the prompt instead, so you can
+It also offers to generate or refresh the `CLAUDE.md` of the project you ran
+it from, using `CLAUDE_TEMPLATE.md`. An existing root `CLAUDE.md` is refreshed
+in place; otherwise it writes `.claude/CLAUDE.md`. Run from your home dir,
+it skips this step. Answer no and it prints the prompt instead, so you can
 paste it into Claude Code in any project.
 
 ## MCP servers

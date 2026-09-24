@@ -3,9 +3,10 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.sh | bash
 #
-# Downloads this repo's tarball into ~/.claude-code-setup (installing uv
-# first if it's missing), then runs ./setup.sh from there. Re-running it
-# updates that copy in place, keeping its .env and .codegraph/.
+# Run it from the project whose CLAUDE.md you want generated. Downloads this
+# repo's tarball into ~/.claude-code-setup (installing uv first if it's
+# missing), then runs its setup.sh against the dir you ran this from.
+# Re-running it updates that copy in place, keeping its .env and .codegraph/.
 #
 # Optional env vars:
 #   CLAUDE_CODE_SETUP_DIR  install location (default: ~/.claude-code-setup)
@@ -19,6 +20,9 @@ main() {
   local repo="felipeeuzebio/claude-code-setup"
   local ref="${CLAUDE_CODE_SETUP_REF:-main}"
   local dest="${CLAUDE_CODE_SETUP_DIR:-$HOME/.claude-code-setup}"
+
+  # The caller's dir is the project; remember it before cd-ing anywhere.
+  export CLAUDE_CODE_SETUP_PROJECT_DIR="${CLAUDE_CODE_SETUP_PROJECT_DIR:-$PWD}"
 
   for cmd in curl tar; do
     command -v "$cmd" >/dev/null || { echo "$cmd is required" >&2; exit 1; }

@@ -13,16 +13,16 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 ## Structure
 
 - `setup.sh` / `setup.ps1` - thin wrappers: check `uv` is present, `exec uv run setup`
-- `install.sh` / `install.ps1` - one-line bootstraps (`curl … | bash` / `irm … | iex`): install `uv` if missing, download the repo tarball/zip from GitHub into `~/.claude-code-setup` (keeping its `.env`/`.codegraph/` across re-runs, leaving a git checkout alone), then run `setup.sh`/`setup.ps1`. The repo slug is hardcoded in both
+- `install.sh` / `install.ps1` - one-line bootstraps (`curl … | bash` / `irm … | iex`): install `uv` if missing, download the repo tarball/zip from GitHub into `~/.claude-code-setup` (keeping its `.env`/`.codegraph/` across re-runs, leaving a git checkout alone), then run `setup.sh`/`setup.ps1` against the directory they were launched from. The repo slug is hardcoded in both
 - `src/claude_code_setup/` - the actual logic, a `uv`-managed packaged app:
   - `__init__.py` - package marker, nothing else
   - `main.py` - orchestration spine (`main()`), what `uv run setup` (a `[project.scripts]` entry, `claude_code_setup.main:main`) calls
   - `mcptest` lives in `tests/`, not here - it's test code, not part of the shipped tool
   - `core/` - helpers every step uses: `ui.py` (terminal output), `envfile.py` (`.env` parsing), `sysinfo.py` (tool detection)
   - `mcp/` - `servers.py` (loads `mcp-servers.json`, defines `REPO_ROOT`) and `config.py` (merges ready servers into `~/.claude.json`)
-  - `claudemd.py`, `bifrost.py` - the CLAUDE.md and Bifrost steps
+  - `claudemd.py`, `bifrost.py` - the CLAUDE.md and Bifrost steps. The CLAUDE.md step targets the launch dir (`CLAUDE_CODE_SETUP_PROJECT_DIR`, set by the wrappers): an existing root `CLAUDE.md`, else `.claude/CLAUDE.md`
   - everything except `main.py` is internal-only: plain functions `main.py` imports, no standalone entry point
-- `tests/` - `pytest` suite, a package (`uv run pytest`): `test_envfile.py`/`test_mcpconfig.py`/`test_claudemd.py` are fast fixture-based unit tests; `test_mcp_servers.py` + `conftest.py` are the live MCP integration suite, marked `integration` (`uv run pytest -m "not integration"` skips it)
+- `tests/` - `pytest` suite, a package (`uv run pytest`): `test_envfile.py`/`test_mcpconfig.py`/`test_claudemd.py`/`test_main.py` are fast fixture-based unit tests; `test_mcp_servers.py` + `conftest.py` are the live MCP integration suite, marked `integration` (`uv run pytest -m "not integration"` skips it)
 - `mcp-servers.json` (root) - standalone MCP server definitions (GitHub, Context7, browser-use, Lightpanda's native MCP server, Codegraph, dbx)
 - `.env.example` - secrets/flags `setup` reads
 - `CLAUDE_TEMPLATE.md` (root) - reusable `CLAUDE.md`-generation prompt, starter structure embedded, that `setup` offers to run via `claude -p` (generate if missing, refresh after a y/n if present; no `--model` pin, the user's default model is the point)
@@ -32,7 +32,7 @@ Personal Claude Code environment configuration: an MCP gateway (Bifrost), a cura
 
 ## Commands
 
-- Run setup (Linux/WSL2/macOS): `./setup.sh`
+- Run setup (Linux/WSL2/macOS): `./setup.sh` (run from the project whose CLAUDE.md you want)
 - Run setup (native Windows): `./setup.ps1`
 - One-line install, no clone: `curl -fsSL https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.sh | bash` / `irm https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.ps1 | iex`
 - Run the whole test suite (fast unit tests + live MCP integration suite): `uv run pytest`

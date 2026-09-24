@@ -265,8 +265,24 @@ permanently-installed command:
   from whatever the user's default model is, not a pin that goes stale.
 - A non-interactive run (no TTY on stdin) never blocks on a prompt - it
   prints the copy-paste block, same as answering no.
-- Saying yes runs `claude -p "$(cat CLAUDE_TEMPLATE.md)"` right there,
-  since setup.sh/setup.ps1 already `cd` to the repo root before this step.
+- The target is the project setup was *launched from*, not this repo.
+  setup.sh/setup.ps1 (and install.sh/.ps1) `cd` into the install dir to run
+  `uv`, so they pass the caller's dir through `CLAUDE_CODE_SETUP_PROJECT_DIR`
+  first. Before that fix, a `curl | bash` run from a project offered to
+  refresh `~/.claude-code-setup/CLAUDE.md` (this repo's own, shipped in the
+  tarball) and never wrote anything into the project. Launched from the home
+  dir, the step is skipped rather than writing `~/CLAUDE.md`.
+- An existing root `CLAUDE.md` is refreshed in place; otherwise the file
+  goes to `.claude/CLAUDE.md` - a new one never lands in the root.
+- `claude -p` never writes the file itself. It used to run with
+  `--allowedTools "Edit(CLAUDE.md)"`, but Claude Code guards everything
+  under `.claude/` behind an approval prompt that `-p` can't show, and
+  that allow rule doesn't lift it: the first real run declined and wrote
+  nothing. Now it runs read-only in the project (Edit/Write disallowed),
+  `OUTPUT_LEAD` names the target and asks for the whole file between
+  `<!-- CLAUDE_MD_START/END -->` markers, and setup writes it. A reply
+  without markers leaves the file untouched and falls back to the
+  copy-paste prompt.
 
 ## Web tool guidance lives in the global CLAUDE.md, gated on what registered
 

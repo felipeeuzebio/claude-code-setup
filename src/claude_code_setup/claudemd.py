@@ -1,4 +1,4 @@
-"""CLAUDE.md steps: generating this repo's own CLAUDE.md from
+"""CLAUDE.md steps: generating the user's project CLAUDE.md from
 CLAUDE_TEMPLATE.md, and maintaining the web/search/browser tool-routing
 block in the user's global ~/.claude/CLAUDE.md.
 
@@ -19,17 +19,32 @@ from claude_code_setup.core import ui
 from claude_code_setup.mcp.servers import REPO_ROOT
 
 PROMPT_FILE = REPO_ROOT / "CLAUDE_TEMPLATE.md"
-CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
 COPY_LEAD = (
     "Copy this into any Claude Code session (here or another project) "
     "whenever you want to generate a CLAUDE.md:"
 )
+# claude -p never writes the file itself: Claude Code guards everything under
+# .claude/ behind an approval prompt that -p can't show, even with
+# --allowedTools "Edit(.claude/CLAUDE.md)". So it prints the file between
+# these markers and setup writes it - one path for root and .claude/ alike.
+CLAUDE_MD_START = "<!-- CLAUDE_MD_START -->"
+CLAUDE_MD_END = "<!-- CLAUDE_MD_END -->"
+OUTPUT_LEAD = (
+    "\n\nThe file is `{target}`, relative to the project root. Don't write or "
+    "edit any file yourself - setup writes it. Reply with the complete file "
+    "contents on the lines between a line `"
+    + CLAUDE_MD_START
+    + "` and a line `"
+    + CLAUDE_MD_END
+    + "`, with no code fence around them."
+)
+_CODE_FENCE_OPEN = "```"
 # The template tells Claude to summarize and wait for confirmation when a
 # CLAUDE.md exists; `claude -p` can't ask, so the y/n happens in the terminal
 # first and this line hands the answer over.
 REFRESH_LEAD = (
-    "\n\nCLAUDE.md already exists and the user has confirmed the refresh: "
-    "update it in place, keep every hand-written line that still matches the "
+    "\n\nThe file already exists and the user has confirmed the refresh: "
+    "read it first, keep every hand-written line that still matches the "
     "repo, change only what no longer does, and don't stop to ask again."
 )
 
@@ -85,15 +100,20 @@ def _show_prompt(lead: str) -> None:
     ui.render_markdown(PROMPT_FILE.read_text(encoding="utf-8"))
 
 
-def _run_claude_p(prompt_text: str) -> str:
-    """Runs claude -p with write access scoped to CLAUDE.md; returns its log.
-    No --model: the CLAUDE.md is meant to come from the user's default model."""
+def claude_md_target(project: Path) -> Path:
+    """The project's root CLAUDE.md if it already has one, otherwise
+    .claude/CLAUDE.md - a new file never goes in the root."""
+    root = project / "CLAUDE.md"
+    return root if root.is_file() else project / ".claude" / "CLAUDE.md"
+
+
+def _run_claude_p(prompt_text: str, cwd: Path) -> str:
+    """Runs claude -p in the project, read-only; returns its output. No
+    --model: the CLAUDE.md is meant to come from the user's default model."""
     try:
-        # --allowedTools "Edit(CLAUDE.md)" scopes write access to just this
-        # file, so claude -p can actually create it instead of stopping to
-        # ask for permission it can't get non-interactively.
         result = subprocess.run(
-            ["claude", "-p", prompt_text, "--allowedTools", "Edit(CLAUDE.md)"],
+            ["claude", "-p", prompt_text, "--disallowedTools", "Edit,Write,NotebookEdit"],
+            cwd=cwd,
             capture_output=True,
             text=True,
             timeout=600,
@@ -104,12 +124,32 @@ def _run_claude_p(prompt_text: str) -> str:
         return str(exc)
 
 
-def ensure_claude_md() -> None:
-    exists = CLAUDE_MD.exists()
+def _extract_claude_md(reply: str) -> str | None:
+    """The file content from claude -p's reply: the last marked block (prose
+    before it may mention the markers), minus a code fence the model added
+    anyway. None when there's no non-empty block."""
+    start = reply.rfind(CLAUDE_MD_START)
+    if start == -1:
+        return None
+    body_start = start + len(CLAUDE_MD_START)
+    end = reply.find(CLAUDE_MD_END, body_start)
+    if end == -1:
+        return None
+    lines = reply[body_start:end].strip("\n").splitlines()
+    if len(lines) >= 2 and lines[0].startswith(_CODE_FENCE_OPEN) and lines[-1].strip() == _CODE_FENCE_OPEN:
+        lines = lines[1:-1]
+    content = "\n".join(lines).strip("\n")
+    return f"{content}\n" if content else None
+
+
+def ensure_claude_md(project: Path) -> None:
+    target = claude_md_target(project)
+    rel = target.relative_to(project).as_posix()
+    exists = target.exists()
 
     if not sys.stdin.isatty():
         if exists:
-            ui.skip("CLAUDE.md already exists - not touching it outside a terminal")
+            ui.skip(f"{rel} already exists - not touching it outside a terminal")
         else:
             _show_prompt(
                 "Not an interactive terminal - here's the prompt, paste it into "
@@ -118,14 +158,14 @@ def ensure_claude_md() -> None:
         return
 
     question = (
-        "CLAUDE.md already exists - refresh it with Claude Code? "
+        f"{rel} already exists in {project} - refresh it with Claude Code? "
         "(only lines that no longer match the repo change)"
         if exists
-        else "Initialize CLAUDE.md for this repo now with Claude Code?"
+        else f"Create {rel} for {project} now with Claude Code?"
     )
     if not ui.confirm(question):
         if exists:
-            ui.skip("CLAUDE.md left as is")
+            ui.skip(f"{rel} left as is")
         else:
             _show_prompt(COPY_LEAD)
         return
@@ -135,21 +175,28 @@ def ensure_claude_md() -> None:
         _show_prompt(COPY_LEAD)
         return
 
-    prompt_text = PROMPT_FILE.read_text(encoding="utf-8")
-    before = CLAUDE_MD.read_text(encoding="utf-8") if exists else None
-    log = _run_claude_p(prompt_text + REFRESH_LEAD if exists else prompt_text)
-    after = CLAUDE_MD.read_text(encoding="utf-8") if CLAUDE_MD.exists() else None
+    prompt_text = PROMPT_FILE.read_text(encoding="utf-8") + OUTPUT_LEAD.format(target=rel)
+    before = target.read_text(encoding="utf-8") if exists else None
+    reply = ui.spin(
+        f"Claude Code is writing {rel}...",
+        lambda: _run_claude_p(prompt_text + REFRESH_LEAD if exists else prompt_text, project),
+    )
+    after = _extract_claude_md(reply)
 
     if after is None:
-        ui.warn("claude -p didn't create CLAUDE.md - see below, or use the prompt instead")
-        ui.console.print(escape(log))
+        ui.warn(f"claude -p didn't return {rel} - see below, or use the prompt instead")
+        ui.console.print(escape(reply))
         _show_prompt(COPY_LEAD)
-    elif before is None:
-        ui.ok("CLAUDE.md generated - review it")
+        return
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(after, encoding="utf-8")
+    if before is None:
+        ui.ok(f"{rel} generated - review it")
     elif after == before:
-        ui.skip("claude -p left CLAUDE.md unchanged - it already matched the repo")
+        ui.skip(f"claude -p left {rel} unchanged - it already matched the repo")
     else:
-        ui.ok("CLAUDE.md refreshed - review the diff (git diff CLAUDE.md)")
+        ui.ok(f"{rel} refreshed - review the diff (git diff {rel})")
 
 
 def _global_claude_md(env: dict[str, str]) -> Path:

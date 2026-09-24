@@ -3,10 +3,15 @@
 # Windows alike. This is a thin wrapper: all the actual logic lives in the
 # `setup` Python package under src/, run via `uv`.
 #
+# Run it from the project whose CLAUDE.md you want generated.
+#
 # Optional config via env vars or a repo-root .env file (see .env.example):
 #   GITHUB_TOKEN,
 #   SKIP_BIFROST=1, SKIP_LIGHTPANDA=1
 set -euo pipefail
+
+# The caller's dir is the project; remember it before cd-ing into the repo.
+export CLAUDE_CODE_SETUP_PROJECT_DIR="${CLAUDE_CODE_SETUP_PROJECT_DIR:-$PWD}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"

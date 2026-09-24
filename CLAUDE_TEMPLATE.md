@@ -1,5 +1,6 @@
-Generate or refresh `CLAUDE.md` at the root of the current project using the
-template below. This is not Claude Code's generic `/init` output - every
+Generate or refresh the current project's `CLAUDE.md` using the template
+below: refresh the root `CLAUDE.md` if the project already has one, otherwise
+write `.claude/CLAUDE.md`. This is not Claude Code's generic `/init` output - every
 section must reflect what's actually in *this* repo, not filler.
 
 1. Inspect the repo before writing anything: package manifests (`package.json`,

@@ -2,9 +2,10 @@
 #
 #   irm https://raw.githubusercontent.com/felipeeuzebio/claude-code-setup/main/install.ps1 | iex
 #
-# Downloads this repo's zip into ~\.claude-code-setup (installing uv first
-# if it's missing), then runs .\setup.ps1 from there. Re-running it updates
-# that copy in place, keeping its .env and .codegraph\.
+# Run it from the project whose CLAUDE.md you want generated. Downloads this
+# repo's zip into ~\.claude-code-setup (installing uv first if it's missing),
+# then runs its setup.ps1 against the dir you ran this from. Re-running it
+# updates that copy in place, keeping its .env and .codegraph\.
 #
 # Optional env vars:
 #   CLAUDE_CODE_SETUP_DIR  install location (default: ~\.claude-code-setup)
@@ -59,9 +60,17 @@ function Install-ClaudeCodeSetup {
         Write-Host "==> Tip: copy $Dest\.env.example to $Dest\.env to add secrets, then re-run"
     }
 
-    # Run in its own process so setup.ps1's `exit` doesn't close the caller's window under `iex`.
-    $Shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
-    & $Shell -NoProfile -ExecutionPolicy ByPass -File (Join-Path $Dest 'setup.ps1')
+    # The caller's dir is the project. Passed as an env var, not the child's
+    # cwd: Windows PowerShell 5.1 doesn't sync Set-Location to the process cwd.
+    $HadProjectDir = [bool]$env:CLAUDE_CODE_SETUP_PROJECT_DIR
+    if (-not $HadProjectDir) { $env:CLAUDE_CODE_SETUP_PROJECT_DIR = (Get-Location).Path }
+    try {
+        # Run in its own process so setup.ps1's `exit` doesn't close the caller's window under `iex`.
+        $Shell = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+        & $Shell -NoProfile -ExecutionPolicy ByPass -File (Join-Path $Dest 'setup.ps1')
+    } finally {
+        if (-not $HadProjectDir) { Remove-Item Env:CLAUDE_CODE_SETUP_PROJECT_DIR -ErrorAction SilentlyContinue }
+    }
 }
 
 Install-ClaudeCodeSetup

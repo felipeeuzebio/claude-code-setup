@@ -10,9 +10,14 @@ import pytest
 
 from claude_code_setup import claudemd
 from claude_code_setup.claudemd import (
+    CLAUDE_MD_END,
+    CLAUDE_MD_START,
+    OUTPUT_LEAD,
     REFRESH_LEAD,
     WEB_TOOLS_END,
     WEB_TOOLS_START,
+    _extract_claude_md,
+    claude_md_target,
     ensure_claude_md,
     ensure_web_tools_guidance,
 )
@@ -96,50 +101,113 @@ def test_rerun_with_same_servers_leaves_file_byte_identical(tmp_path: Path) -> N
     assert first == second
 
 
-# --- ensure_claude_md: the repo-level file ---------------------------------
+# --- ensure_claude_md: the project's own file -----------------------------
 
 
 @pytest.fixture
-def claude_p(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
-    """Stands in for an interactive run with `claude` on PATH; records the
-    prompt `claude -p` would have received instead of spawning it."""
-    seen: dict = {"prompts": [], "confirm": True}
-    monkeypatch.setattr(claudemd, "CLAUDE_MD", tmp_path / "CLAUDE.md")
+def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A scratch project dir, as if setup was run from inside it."""
+    proj = tmp_path / "proj"
+    proj.mkdir()
     monkeypatch.setattr(claudemd, "PROMPT_FILE", tmp_path / "CLAUDE_TEMPLATE.md")
     claudemd.PROMPT_FILE.write_text("TEMPLATE\n", encoding="utf-8")
+    return proj
+
+
+def _reply(content: str) -> str:
+    """What claude -p prints: some chatter, then the file between markers."""
+    return f"Here it is.\n{CLAUDE_MD_START}\n{content}{CLAUDE_MD_END}\nDone.\n"
+
+
+@pytest.fixture
+def claude_p(project: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
+    """Stands in for an interactive run with `claude` on PATH; records what
+    `claude -p` would have received instead of spawning it."""
+    seen: dict = {"calls": [], "confirm": True, "reply": _reply("# generated\n")}
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(claudemd.shutil, "which", lambda _: "/usr/bin/claude")
     monkeypatch.setattr(claudemd.ui, "confirm", lambda *_a, **_k: seen["confirm"])
 
-    def fake_run(prompt: str) -> str:
-        seen["prompts"].append(prompt)
-        claudemd.CLAUDE_MD.write_text("# generated\n", encoding="utf-8")
-        return ""
+    def fake_run(prompt: str, cwd: Path) -> str:
+        seen["calls"].append((prompt, cwd))
+        return seen["reply"]
 
     monkeypatch.setattr(claudemd, "_run_claude_p", fake_run)
     return seen
 
 
-def test_existing_claude_md_is_refreshed_with_confirmation_handed_over(claude_p: dict) -> None:
-    claudemd.CLAUDE_MD.write_text("# old\n", encoding="utf-8")
-
-    ensure_claude_md()
-
-    assert claude_p["prompts"] == ["TEMPLATE\n" + REFRESH_LEAD]
-    assert claudemd.CLAUDE_MD.read_text(encoding="utf-8") == "# generated\n"
+def test_target_is_dot_claude_when_there_is_no_claude_md(project: Path) -> None:
+    assert claude_md_target(project) == project / ".claude" / "CLAUDE.md"
 
 
-def test_fresh_claude_md_gets_the_plain_template(claude_p: dict) -> None:
-    ensure_claude_md()
+def test_target_is_root_when_root_claude_md_exists(project: Path) -> None:
+    (project / "CLAUDE.md").write_text("# root\n", encoding="utf-8")
+    (project / ".claude").mkdir()
+    (project / ".claude" / "CLAUDE.md").write_text("# nested\n", encoding="utf-8")
 
-    assert claude_p["prompts"] == ["TEMPLATE\n"]
+    assert claude_md_target(project) == project / "CLAUDE.md"
 
 
-def test_declined_refresh_never_runs_claude(claude_p: dict) -> None:
-    claudemd.CLAUDE_MD.write_text("# old\n", encoding="utf-8")
+def test_fresh_project_gets_dot_claude_claude_md(project: Path, claude_p: dict) -> None:
+    ensure_claude_md(project)
+
+    [(prompt, cwd)] = claude_p["calls"]
+    assert cwd == project
+    assert prompt == "TEMPLATE\n" + OUTPUT_LEAD.format(target=".claude/CLAUDE.md")
+    assert (project / ".claude" / "CLAUDE.md").read_text(encoding="utf-8") == "# generated\n"
+    assert not (project / "CLAUDE.md").exists()
+
+
+def test_existing_root_claude_md_is_refreshed_in_place(project: Path, claude_p: dict) -> None:
+    (project / "CLAUDE.md").write_text("# old\n", encoding="utf-8")
+
+    ensure_claude_md(project)
+
+    [(prompt, _cwd)] = claude_p["calls"]
+    assert prompt == "TEMPLATE\n" + OUTPUT_LEAD.format(target="CLAUDE.md") + REFRESH_LEAD
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "# generated\n"
+    assert not (project / ".claude").exists()
+
+
+def test_existing_dot_claude_claude_md_is_refreshed(project: Path, claude_p: dict) -> None:
+    (project / ".claude").mkdir()
+    (project / ".claude" / "CLAUDE.md").write_text("# old\n", encoding="utf-8")
+
+    ensure_claude_md(project)
+
+    [(prompt, _cwd)] = claude_p["calls"]
+    assert ".claude/CLAUDE.md" in prompt
+    assert prompt.endswith(REFRESH_LEAD)
+    assert (project / ".claude" / "CLAUDE.md").read_text(encoding="utf-8") == "# generated\n"
+
+
+def test_declined_refresh_never_runs_claude(project: Path, claude_p: dict) -> None:
+    (project / "CLAUDE.md").write_text("# old\n", encoding="utf-8")
     claude_p["confirm"] = False
 
-    ensure_claude_md()
+    ensure_claude_md(project)
 
-    assert claude_p["prompts"] == []
-    assert claudemd.CLAUDE_MD.read_text(encoding="utf-8") == "# old\n"
+    assert claude_p["calls"] == []
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "# old\n"
+
+
+def test_reply_without_markers_leaves_the_file_alone(project: Path, claude_p: dict) -> None:
+    (project / "CLAUDE.md").write_text("# old\n", encoding="utf-8")
+    claude_p["reply"] = "I couldn't do it.\n"
+
+    ensure_claude_md(project)
+
+    assert (project / "CLAUDE.md").read_text(encoding="utf-8") == "# old\n"
+
+
+def test_extract_takes_the_last_marked_block_and_drops_a_code_fence() -> None:
+    reply = (
+        f"I'll wrap it in {CLAUDE_MD_START} ... {CLAUDE_MD_END} as asked.\n"
+        f"{CLAUDE_MD_START}\n```markdown\n# Title\n\nBody\n```\n{CLAUDE_MD_END}\n"
+    )
+    assert _extract_claude_md(reply) == "# Title\n\nBody\n"
+
+
+def test_extract_returns_none_for_an_empty_or_missing_block() -> None:
+    assert _extract_claude_md("no markers here") is None
+    assert _extract_claude_md(f"{CLAUDE_MD_START}\n\n{CLAUDE_MD_END}") is None

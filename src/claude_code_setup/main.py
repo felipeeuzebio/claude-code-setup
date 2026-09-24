@@ -32,6 +32,25 @@ from claude_code_setup.mcp.servers import REPO_ROOT
 _SHELL = sys.platform == "win32"
 
 
+def _project_dir() -> Path | None:
+    """The directory setup was launched from. setup.sh/setup.ps1 cd into the
+    repo before `uv run`, so they pass the caller's dir along in
+    CLAUDE_CODE_SETUP_PROJECT_DIR. None for the home dir - that's where a
+    bare `curl | bash` usually runs, and it's no project."""
+    raw = os.environ.get("CLAUDE_CODE_SETUP_PROJECT_DIR")
+    project = (Path(raw) if raw else Path.cwd()).resolve()
+    return None if project == Path.home().resolve() else project
+
+
+def _claude_md_step(project: Path | None) -> None:
+    if project is None:
+        ui.step("CLAUDE.md")
+        ui.skip("Launched from your home dir - re-run from inside a project to generate its CLAUDE.md")
+        return
+    ui.step(f"CLAUDE.md for {project}")
+    claudemd.ensure_claude_md(project)
+
+
 def _install_tool(cmd: str, unix_url: str, windows_url: str) -> bool:
     """Installs `cmd` from a curl|bash (unix) or irm|iex (Windows)
     one-liner unless it's already on PATH. Prints an ok line either way and
@@ -98,7 +117,7 @@ def _required_tools_step() -> bool:
     return has_uvx
 
 
-def _codegraph_step() -> None:
+def _codegraph_step(project: Path | None) -> None:
     ui.step("Codegraph")
     unix_url = "https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh"
     windows_url = "https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1"
@@ -119,21 +138,26 @@ def _codegraph_step() -> None:
     )
     ui.ok("codegraph registered in Claude Code")
 
+    if project is None:
+        ui.console.print("  Run 'codegraph init' in any project whenever you want to index it.")
+        return
     # init builds an index from scratch, sync refreshes the existing one.
-    cg_action = "sync" if (REPO_ROOT / ".codegraph").is_dir() else "init"
+    cg_action = "sync" if (project / ".codegraph").is_dir() else "init"
     if not sys.stdin.isatty():
         ui.console.print(
-            f"  Run 'codegraph {cg_action}' in this repo (or any project) "
-            "whenever you want to build/refresh its index."
+            escape(
+                f"  Run 'codegraph {cg_action}' in {project} (or any project) "
+                "whenever you want to build/refresh its index."
+            )
         )
-    elif ui.confirm(f"Run 'codegraph {cg_action}' for this repo now?"):
+    elif ui.confirm(f"Run 'codegraph {cg_action}' for {project} now?"):
         ui.spin(
             f"Running codegraph {cg_action}...",
-            lambda: subprocess.run(["codegraph", cg_action], shell=_SHELL),
+            lambda: subprocess.run(["codegraph", cg_action], cwd=project, shell=_SHELL),
         )
         ui.ok(f"codegraph {cg_action} complete")
     else:
-        ui.skip(f"Skipped - run 'codegraph {cg_action}' in this repo anytime")
+        ui.skip(f"Skipped - run 'codegraph {cg_action}' in {project} anytime")
 
 
 def _browser_use_step(has_uvx: bool) -> bool:
@@ -235,13 +259,14 @@ def main() -> None:
     os.environ["PATH"] = os.pathsep.join([local_bin, cargo_bin, os.environ.get("PATH", "")])
 
     apply_env(load_env(REPO_ROOT / ".env"))
+    project = _project_dir()
 
     _git_hook_step()
 
     has_uvx = _required_tools_step()
     os.environ["HAS_UVX"] = "true" if has_uvx else "false"
 
-    _codegraph_step()
+    _codegraph_step(project)
 
     browser_use_ready = _browser_use_step(has_uvx)
     os.environ["BROWSER_USE_READY"] = "true" if browser_use_ready else "false"
@@ -249,8 +274,7 @@ def main() -> None:
     has_lightpanda = _lightpanda_step(dict(os.environ))
     os.environ["HAS_LIGHTPANDA"] = "true" if has_lightpanda else "false"
 
-    ui.step("CLAUDE.md for this repo")
-    claudemd.ensure_claude_md()
+    _claude_md_step(project)
 
     ui.step("Registering MCP servers into ~/.claude.json")
     registered = mcp_config.merge_and_write(env=dict(os.environ))
